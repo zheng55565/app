@@ -1,0 +1,25 @@
+{
+  "name": "linuxdo-ad-reward-server",
+  "version": "0.1.0",
+  "description": "公益中转站广告奖励 App 后端框架（LinuxDo Connect OAuth2 绑定 + 广告奖励回调 + 钱包）",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "check": "node --check src/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.12.0"
+  },
+  "devDependencies": {
+    "embedded-postgres": "^18.4.0-beta.17"
+  }
+}

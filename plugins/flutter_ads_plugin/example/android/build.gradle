@@ -1,0 +1,34 @@
+allprojects {
+    repositories {
+        //google()
+        //jcenter()
+        //添加阿里云镜像
+        maven { url 'https://maven.aliyun.com/repository/public/' }
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/jcenter' }
+        maven { url 'https://storage.flutter-io.cn/download.flutter.io' }
+        mavenCentral()// 保持原有的中央仓库引用
+        flatDir {
+            dirs 'libs'
+        }
+    }
+}
+
+// 设置根项目的构建目录
+rootProject.layout.buildDirectory.set(rootProject.file('../build'))
+
+// 设置子项目的构建目录为根目录下的子目录
+subprojects {
+    project.layout.buildDirectory.set(rootProject.layout.buildDirectory.dir(project.name))
+}
+
+// 确保子项目在 :app 之后评估
+subprojects {
+    project.evaluationDependsOn(':app')
+}
+
+// 注册 clean 任务
+tasks.register("clean", Delete) {
+    delete rootProject.layout.buildDirectory
+}

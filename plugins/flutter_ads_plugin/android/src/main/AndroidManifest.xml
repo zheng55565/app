@@ -1,0 +1,62 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--联⽹权限-->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!--检测当前⽹络状态是2G、3G、4G还是WiFi-->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!-- 广告可选权限，摇一摇权限，用于广告互动 -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- 如果视频广告使用textureView播放，请务必添加，否则黑屏 -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
+
+    <!-- ============================================================
+         已裁剪的敏感权限（按需在宿主 App 的 Manifest 里单独声明）：
+         - READ_PHONE_STATE（IMEI）：Android 10+ 三方 SDK 均已改用 OAID，无需申请
+         - READ/WRITE_EXTERNAL_STORAGE：广告落地页下载 APK 用，scoped storage 后无需
+         - CHANGE_WIFI_STATE：MAC 采集，合规风险高，渠道未强制不加
+         - REQUEST_INSTALL_PACKAGES：仅当接入的渠道要做应用直投下载安装时加回，
+           且需在应用市场提交说明
+         - ACCESS_COARSE/FINE_LOCATION：LBS 定向广告用，非必须，加回需隐私弹窗声明
+         - QUERY_ALL_PACKAGES：穿山甲"建议"项而非必须项，应用市场审核高危，
+           不加只影响投放精度
+         - GET_TASKS：已废弃 API，无渠道强制
+         ============================================================ -->
+
+    <!-- 华硕获取OAID权限（OAID 是国内广告归因标准途径，保留） -->
+    <uses-permission android:name="com.asus.msa.SupplementaryDID.ACCESS" />
+
+    <!--穿山甲：发送和注册广播事件需要调用带有传递权限的接口（signature 级，不涉隐私）-->
+    <permission
+        android:name="${applicationId}.openadsdk.permission.TT_PANGOLIN"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="${applicationId}.openadsdk.permission.TT_PANGOLIN" />
+    <!--ks-->
+    <permission
+        android:name="${applicationId}.permission.KW_SDK_BROADCAST"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="${applicationId}.permission.KW_SDK_BROADCAST" />
+
+    <application android:networkSecurityConfig="@xml/network_security_config">
+        <provider
+            android:name="com.qq.e.comm.GDTFileProvider"
+            android:authorities="${applicationId}.gdt.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/gdt_file_path" />
+        </provider>
+        <provider
+            android:name="com.bytedance.sdk.openadsdk.TTFileProvider"
+            android:authorities="${applicationId}.TTFileProvider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+    </application>
+</manifest>

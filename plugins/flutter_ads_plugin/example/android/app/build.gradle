@@ -1,0 +1,90 @@
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+android {
+    namespace = "com.flutter.ads_plugin.flutter_ads_plugin_example"
+    compileSdk 35
+    ndkVersion = "27.0.12077973"
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    defaultConfig {
+        applicationId "com.klkl99.cn.cs.hj.flutter"
+        minSdkVersion 24
+        targetSdkVersion 35
+        versionCode 1
+        versionName "1.0"
+
+        // 方式一：使用 ndk 配置
+        ndk {
+            abiFilters 'armeabi-v7a', 'arm64-v8a'
+        }
+        // 方式二：使用 ndkAbiFilters（较新方式）
+        //ndkAbiFilters 'armeabi-v7a', 'arm68-v8a'
+    }
+
+    signingConfigs {
+        releaseConfig {
+            storeFile file("huijing.jks")
+            storePassword '123456'
+            keyAlias = 'huijing'
+            keyPassword '123456'
+            v1SigningEnabled true
+            v2SigningEnabled true
+        }
+        debug {
+            storeFile file("huijing.jks")
+            storePassword '123456'
+            keyAlias = 'huijing'
+            keyPassword '123456'
+            v1SigningEnabled true
+            v2SigningEnabled true
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.debug
+        }
+    }
+}
+
+flutter {
+    source '../..'
+}
+
+rootProject.allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        flatDir {
+            dirs project(':flutter_ads_plugin').file('libs')
+        }
+    }
+}
+
+dependencies {
+    //implementation fileTree(dir: "libs", include: ["*.jar", "*.aar"])
+    //androidX版本
+    implementation "androidx.appcompat:appcompat:1.2.0"
+    implementation 'androidx.legacy:legacy-support-v4:1.0.0'
+    implementation "androidx.recyclerview:recyclerview:1.2.0"
+
+    implementation 'androidx.multidex:multidex:2.0.1'
+    implementation 'androidx.cardview:cardview:1.0.0'
+    implementation 'com.googlecode.android-query:android-query:0.25.9'
+
+    implementation 'com.google.android.material:material:1.1.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.0.4'
+
+    implementation 'com.squareup.okhttp3:okhttp:3.8.0'
+    implementation 'com.squareup.okio:okio:1.13.0'
+    implementation 'com.google.code.gson:gson:2.9.0'
+    implementation 'com.github.bumptech.glide:glide:3.7.0'
+}
