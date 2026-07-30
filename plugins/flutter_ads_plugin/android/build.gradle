@@ -1,0 +1,118 @@
+group = "com.flutter.ads_plugin.flutter_ads_plugin"
+version = "1.0"
+
+buildscript {
+    repositories {
+        //google()
+        //jcenter()
+        //添加阿里云镜像
+        maven { url 'https://maven.aliyun.com/repository/public/' }
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/jcenter' }
+        mavenCentral()// 保持原有的中央仓库引用
+        flatDir {
+            dirs 'libs'
+        }
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:7.4.2'
+    }
+}
+
+// flatDir 必须用本插件目录的绝对路径：宿主 App 解析依赖时，相对路径 'libs'
+// 会指向宿主自己的 libs 目录导致 Could not find :xxx.aar
+def pluginLibsDir = file('libs')
+
+rootProject.allprojects {
+    repositories {
+        //google()
+        //jcenter()
+        //添加阿里云镜像
+        maven { url 'https://maven.aliyun.com/repository/public/' }
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/jcenter' }
+        mavenCentral()// 保持原有的中央仓库引用
+        flatDir {
+            dirs pluginLibsDir
+        }
+    }
+}
+
+apply plugin: "com.android.library"
+
+android {
+    namespace = "com.flutter.ads_plugin.flutter_ads_plugin"
+
+    compileSdk = 35
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    defaultConfig {
+        minSdk = 21
+    }
+}
+
+//获取local.properties配置文件
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader('UTF-8') { reader ->
+        localProperties.load(reader)
+    }
+}
+//获取flutter的sdk路径
+def flutterRoot = localProperties.getProperty('flutter.sdk')
+if (flutterRoot == null) {
+    throw new GradleException("Flutter SDK not found. Define location with flutter.sdk in the local.properties file.")
+}
+
+// 外部依赖
+dependencies {
+    compileOnly files("$flutterRoot/bin/cache/artifacts/engine/android-arm/flutter.jar")
+    //androidX版本
+    implementation "androidx.appcompat:appcompat:1.2.0"
+    implementation 'androidx.legacy:legacy-support-v4:1.0.0'
+    implementation "androidx.recyclerview:recyclerview:1.2.0"
+
+    implementation 'androidx.multidex:multidex:2.0.1'
+    implementation 'androidx.cardview:cardview:1.0.0'
+    implementation 'com.googlecode.android-query:android-query:0.25.9'
+
+    implementation 'com.google.android.material:material:1.1.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.0.4'
+
+    implementation 'com.squareup.okhttp3:okhttp:3.8.0'
+    implementation 'com.squareup.okio:okio:1.13.0'
+    implementation 'com.google.code.gson:gson:2.9.0'
+    implementation 'com.github.bumptech.glide:glide:3.7.0'
+
+
+    api(name: 'Baidu_MobAds_SDK-release_v9.450', ext: 'aar')
+    api(name: 'beizi_fusion_sdk_5.5.0.2', ext: 'aar')
+    api(name: 'GDTSDK.unionNormal.4.690.1560', ext: 'aar')
+
+    api(name: 'hj-mill-adscope-adapter-5.5.0.2-4.8.81', ext: 'aar')
+    api(name: 'hj-mill-baidu-adapter-9.450-4.8.81', ext: 'aar')
+    api(name: 'hj-mill-csj-adapter-7.6.1.1-4.8.81', ext: 'aar')
+    api(name: 'hj-mill-gdt-adapter-4.690.1560-4.8.81', ext: 'aar')
+    api(name: 'hj-mill-gromore-adapter-7.6.1.1-4.8.81', ext: 'aar')
+    api(name: 'hj-mill-kuaishou-adapter-5.4.10.2-4.8.81', ext: 'aar')
+    api(name: 'hj-mill-octopus-adapter-2.6.4.28-4.8.81', ext: 'aar')
+    api(name: 'hj-mill-sdk-4.8.81', ext: 'aar')
+    api(name: 'hj-mill-xbid-adapter-1.0.0-4.8.81', ext: 'aar')
+
+    api(name: 'hj-openads-4.8.81.1', ext: 'aar')
+
+    api(name: 'kssdk-ct-5.4.10.2', ext: 'aar')
+    api(name: 'octopus_ad_sdk_2.6.4.28', ext: 'aar')
+    api(name: 'open_ad_sdk_7.6.1.1', ext: 'aar')
+    api(name: 'wind-common-2.0.2.1', ext: 'aar')
+    api(name: 'wind-sdk-4.25.21.1', ext: 'aar')
+
+}

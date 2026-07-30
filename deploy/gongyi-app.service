@@ -1,0 +1,32 @@
+[Unit]
+Description=Gongyi App backend (linuxdo-ad-reward-server)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/gongyi-app/server
+ExecStart=/usr/bin/node src/index.js
+Restart=always
+RestartSec=3
+# Node >=20：让 fetch 读代理环境变量的开关在服务器上不需要（服务器直连外网）
+Environment=NODE_ENV=production
+EnvironmentFile=/etc/gongyi-app.env
+# 安全加固
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+UMask=0077
+MemoryHigh=768M
+MemoryMax=1G
+TasksMax=256
+
+[Install]
+WantedBy=multi-user.target

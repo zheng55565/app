@@ -1,0 +1,51 @@
+<network-security-config>
+    <!-- 此配置会随 manifest 合并进宿主 App 生效。
+         信任锚只留 system：信任用户自装 CA 会让抓包代理直接解密 App 全部
+         HTTPS 流量（合规与安全双重风险），广告 SDK 并不需要它。
+         明文放行保留：开发期宿主 API 走 http://10.0.2.2，广告 SDK 部分
+         域名也仍是 http；生产收紧时把 base-config 改为 false 并保留
+         domain-config 白名单即可。 -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">i.snssdk.com</domain>
+        <domain includeSubdomains="true">is.snssdk.com</domain>
+        <domain includeSubdomains="true">pangolin.snssdk.com</domain>
+        <domain includeSubdomains="true">extlog.snssdk.com</domain>
+        <domain includeSubdomains="true">sf3-ttcdn-tos.pstatp.com</domain>
+        <domain includeSubdomains="true">bds.snssdk.com</domain>
+        <domain includeSubdomains="true">dig.bdurl.net</domain>
+
+        <domain includeSubdomains="true">api-access.pangolin-sdk-toutiao.com</domain>
+        <domain includeSubdomains="true">gromore.pangolin-sdk-toutiao.com</domain>
+        <domain includeSubdomains="true">request-api.pangolin-sdk-toutiao.com</domain>
+        <domain includeSubdomains="true">sf1-fe-tos.pglstatp-toutiao.com</domain>
+        <domain includeSubdomains="true">sf1-be-pack.pglstatp-toutiao.com</domain>
+        <domain includeSubdomains="true">sf3-fe-tos.pglstatp-toutiao.com</domain>
+        <domain includeSubdomains="true">log-api.pangolin-sdk-toutiao.com</domain>
+        <domain includeSubdomains="true">s3-fe-scm.pglstatp-toutiao.com</domain>
+        <domain includeSubdomains="true">s3a.pstatp.com</domain>
+
+        <domain includeSubdomains="true">api-access.pangolin-sdk-toutiao-b.com</domain>
+        <domain includeSubdomains="true">log-api.pangolin-sdk-toutiao-b.com</domain>
+        <domain includeSubdomains="true">dm.pstatp.com</domain>
+
+        <domain includeSubdomains="true">toblog.ctobsnssdk.com</domain>
+        <domain includeSubdomains="true">sdfp.snssdk.com</domain>
+        <domain includeSubdomains="true">tosv.byted.org</domain>
+        <domain includeSubdomains="true">sf1-ttcdn-tos.pstatp.com</domain>
+        <domain includeSubdomains="true">sf6-fe-tos.pglstatp-toutiao.com</domain>
+        <domain includeSubdomains="true">log.snssdk.com</domain>
+        <domain includeSubdomains="true">tosv.boe.byted.org</domain>
+        <domain includeSubdomains="true">dm.toutiao.com</domain>
+        <domain includeSubdomains="true">dm.bytedance.com</domain>
+
+        <domain includeSubdomains="true">127.0.0.1</domain>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </domain-config>
+</network-security-config>

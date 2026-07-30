@@ -1,0 +1,1619 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+    <meta name="color-scheme" content="light">
+    <title>游戏大厅</title>
+    <style>
+      :root {
+        --bg: #eef5fb;
+        --surface: #ffffff;
+        --surface-2: #f5f9fd;
+        --line: #d7e4f2;
+        --text: #203244;
+        --muted: #6b7e91;
+        --green: #2b73b7;
+        --green-soft: #e7f2fd;
+        --gold: #267d9a;
+        --red: #c94f5b;
+        --blue: #2b73b7;
+      }
+      * { box-sizing: border-box; }
+      [hidden] { display: none !important; }
+      html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; }
+      body { padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
+      button, input, select { font: inherit; letter-spacing: 0; }
+      button { cursor: pointer; }
+      button:disabled { cursor: default; opacity: .46; }
+      .app { min-height: 100vh; }
+      .topbar { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.96); border-bottom: 1px solid var(--line); }
+      .top-inner { max-width: 920px; margin: auto; min-height: 54px; padding: 8px 14px; display: flex; align-items: center; gap: 12px; }
+      .brand { font-size: 17px; font-weight: 750; white-space: nowrap; }
+      .balance { margin-left: auto; display: flex; align-items: baseline; gap: 6px; color: var(--muted); }
+      .balance strong { color: var(--gold); font-size: 18px; }
+      .tabs { max-width: 920px; margin: auto; padding: 0 10px; display: flex; gap: 4px; }
+      .tab { min-width: 82px; height: 38px; border: 0; border-bottom: 2px solid transparent; color: var(--muted); background: transparent; }
+      .tab.active { color: var(--text); border-color: var(--green); }
+      main { max-width: 920px; margin: auto; padding: 14px; }
+      .view[hidden], .game[hidden] { display: none; }
+      .wallet-strip { display: grid; grid-template-columns: 1fr 158px auto auto; gap: 8px; align-items: center; padding: 10px 0 14px; }
+      .wallet-copy { color: var(--muted); font-size: 13px; }
+      .wallet-copy strong { display: block; color: var(--text); font-size: 14px; margin-bottom: 3px; }
+      .wallet-copy span { display: block; }
+      .convert-direction { width: 158px; }
+      input, select { height: 38px; min-width: 0; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--text); padding: 0 10px; }
+      .amount-input { width: 96px; }
+      .btn { min-height: 38px; border: 1px solid var(--line); border-radius: 6px; padding: 0 14px; color: var(--text); background: var(--surface-2); }
+      .btn.primary { border-color: #1f66a8; background: var(--green); color: #fff; font-weight: 700; }
+      .btn.danger { border-color: #e6b8bd; color: #a63f49; background: #fff0f1; }
+      .btn.ghost { background: transparent; }
+      .game-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+      .game-card { min-height: 86px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); padding: 12px; display: grid; grid-template-columns: 44px minmax(0,1fr) auto; grid-template-rows: auto auto; column-gap: 12px; align-items: center; text-align: left; color: var(--text); }
+      .game-card:hover, .game-card.active { border-color: var(--blue); background: var(--green-soft); }
+      .game-mark { grid-row: 1 / 3; width: 40px; height: 40px; border-radius: 7px; display: grid; place-items: center; font-weight: 800; }
+      .mark-rps { background: #e4f1fb; color: #2b73b7; }
+      .mark-mine { background: #e7f5fa; color: #267d9a; }
+      .mark-battle { background: #dcecff; color: #165e9b; }
+      .game-title { font-weight: 750; font-size: 16px; }
+      .game-meta { color: var(--muted); font-size: 12px; line-height: 1.45; }
+      .game-open { grid-column: 3; grid-row: 1 / 3; color: var(--green); font-size: 12px; white-space: nowrap; }
+      .panel-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+      .back { width: 38px; height: 38px; border: 1px solid var(--line); border-radius: 50%; background: transparent; color: var(--text); font-size: 20px; }
+      h2 { margin: 0; font-size: 18px; letter-spacing: 0; }
+      .rule-line { margin-left: auto; color: var(--muted); font-size: 12px; }
+      .game-surface { border-top: 1px solid var(--line); padding-top: 18px; }
+      .rps-stage { min-height: 220px; display: grid; grid-template-columns: 1fr 62px 1fr; align-items: stretch; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; background: var(--surface); margin-bottom: 12px; }
+      .fighter { padding: 16px 10px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; }
+      .fighter.user { background: #e6f3fd; color: #215e94; }
+      .fighter.bot { background: #fff0f1; color: #a7444b; }
+      .fighter-name { font-weight: 750; }
+      .fighter-art { min-height: 92px; display: grid; place-items: center; font-size: 66px; line-height: 1; }
+      .hand-icon { width: 76px; height: 92px; fill: currentColor; transform-origin: 50% 60%; }
+      .fighter.reveal .hand-icon { animation: hand-pop .32s ease-out; }
+      @keyframes hand-pop { 0% { transform: scale(.55) rotate(-14deg); opacity: .25; } 100% { transform: scale(1) rotate(0); opacity: 1; } }
+      .fighter-choice { font-weight: 700; }
+      .versus { align-self: center; width: 58px; height: 58px; border-radius: 50%; background: #0f568e; color: #fff; border: 2px solid #d9edff; display: grid; place-items: center; font-size: 18px; font-weight: 850; z-index: 1; }
+      .rps-controls { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+      .rps-choice { min-height: 82px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--text); font-size: 15px; font-weight: 700; display: grid; place-items: center; gap: 3px; }
+      .rps-symbol { display: block; font-size: 31px; line-height: 1; }
+      .rps-choice:hover { border-color: var(--green); }
+      .result-box { min-height: 90px; margin-top: 14px; padding: 14px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); }
+      .result-title { font-size: 18px; font-weight: 800; }
+      .win { color: #16815f; }
+      .loss { color: #b54848; }
+      .draw { color: var(--gold); }
+      .result-detail { margin-top: 6px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+      .mine-create { display: grid; grid-template-columns: 1fr 100px auto; gap: 8px; align-items: center; padding-bottom: 14px; }
+      .mine-list { display: grid; gap: 8px; }
+      .mine-item { border: 1px solid var(--line); border-radius: 7px; background: var(--surface); padding: 10px; display: grid; grid-template-columns: 62px 1fr auto; gap: 10px; align-items: center; }
+      .envelope { width: 62px; height: 72px; border-radius: 6px; background: #d64a3e; border: 1px solid #ed7167; display: grid; place-items: center; position: relative; overflow: hidden; }
+      .envelope::before { content: ''; position: absolute; top: -28px; width: 70px; height: 58px; border: 2px solid #ffb85c; transform: rotate(45deg); }
+      .envelope span { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: #ffe0a3; color: #963522; font-weight: 850; z-index: 1; }
+      .envelope.large { width: 150px; height: 182px; margin: auto; }
+      .envelope.large::before { top: -55px; width: 170px; height: 130px; }
+      .envelope.large span { width: 52px; height: 52px; font-size: 18px; }
+      .mine-name { font-weight: 700; }
+      .mine-meta { margin-top: 4px; color: var(--muted); font-size: 12px; }
+      .mine-claims { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+      .mine-claim { padding: 3px 6px; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); font-size: 11px; }
+      .mine-claim.hit { border-color: #8c4848; color: #ffaaaa; }
+      .mine-progress { height: 5px; margin-top: 8px; border-radius: 3px; background: #3a2a29; overflow: hidden; }
+      .mine-progress span { display: block; height: 100%; background: #e06457; }
+      .mine-open-modal { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: max(28px,env(safe-area-inset-top)) 22px max(26px,env(safe-area-inset-bottom)); overflow: hidden; background: #e62e2e; color: #ffe0a3; text-align: center; }
+      .mine-open-sender { position: relative; z-index: 2; display: flex; align-items: center; gap: 8px; margin-bottom: 11px; color: #fff7e7; font-size: 16px; font-weight: 750; }
+      .mine-open-avatar,.mine-detail-avatar { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: #ffd992; color: #9d2b20; font-size: 17px; font-weight: 850; box-shadow: 0 4px 12px rgba(92,12,8,.2); }
+      .mine-open-greeting { position: relative; z-index: 2; margin-bottom: 28px; color: #ffd992; font-size: 19px; font-weight: 800; }
+      .mine-open-envelope { position: relative; z-index: 1; width: min(330px,88vw); height: min(420px,52vh); min-height: 340px; border-radius: 16px; overflow: hidden; background: #d82929; border: 1px solid rgba(255,221,154,.28); box-shadow: 0 20px 46px rgba(86,8,7,.3); perspective: 900px; transition: transform .38s ease; }
+      .mine-open-envelope::after { content: ''; position: absolute; left: -10%; right: -10%; bottom: -46%; height: 76%; border-radius: 50% 50% 0 0; background: #cf2525; border-top: 1px solid rgba(255,213,132,.2); }
+      .mine-open-flap { position: absolute; z-index: 2; left: -8%; right: -8%; top: -24%; height: 67%; border-radius: 0 0 50% 50%; background: #f0443f; box-shadow: 0 5px 14px rgba(94,8,6,.18); transform-origin: 50% 0; transition: transform .68s cubic-bezier(.2,.72,.18,1),opacity .42s ease; backface-visibility: hidden; }
+      .mine-open-action { position: absolute; z-index: 4; left: 50%; top: 43%; width: 84px; height: 84px; margin: -42px 0 0 -42px; border: 0; border-radius: 50%; background: linear-gradient(145deg,#ffe8ad,#f4c66e); color: #a83a25; font-size: 34px; font-weight: 850; box-shadow: 0 10px 24px rgba(91,12,6,.3),inset 0 1px 0 rgba(255,255,255,.65); animation: mine-open-pulse 1.35s ease-in-out infinite alternate; transition: transform .2s ease,opacity .25s ease; }
+      .mine-open-action:disabled { opacity: .7; }
+      .mine-open-modal.opening .mine-open-flap { transform: rotateX(-145deg) translateY(20px); opacity: .76; }
+      .mine-open-modal.opening .mine-open-action { animation: mine-open-spin .7s ease-in-out infinite; }
+      .mine-open-modal.opened .mine-open-envelope { transform: translateY(48px) scale(.94); }
+      .mine-open-close { position: relative; z-index: 3; width: 48px; height: 48px; margin-top: 28px; border: 2px solid rgba(255,224,163,.9); border-radius: 50%; background: transparent; color: #ffe0a3; font-size: 30px; line-height: 1; }
+      .mine-open-status { position: absolute; z-index: 4; left: 20px; right: 20px; bottom: 34px; color: #ffe8bd; font-size: 13px; }
+      @keyframes mine-open-pulse { from { transform: scale(.96); box-shadow: 0 8px 20px rgba(91,12,6,.24); } to { transform: scale(1.05); box-shadow: 0 12px 30px rgba(91,12,6,.42); } }
+      @keyframes mine-open-spin { from { transform: rotateY(0); } to { transform: rotateY(360deg); } }
+      .mine-detail-page { position: fixed; inset: 0; z-index: 65; overflow-y: auto; overscroll-behavior: contain; background: linear-gradient(180deg,#0f3460 0,#051937 100%); color: #e6f2ff; animation: mine-detail-in .28s ease-out both; }
+      .mine-detail-top { position: relative; min-height: 270px; padding: max(16px,env(safe-area-inset-top)) 20px 20px; overflow: hidden; text-align: center; }
+      .mine-detail-top::before { content: ''; position: absolute; z-index: 0; left: -15%; right: -15%; top: -168px; height: 365px; border-radius: 0 0 50% 50%; background: #e62e2e; box-shadow: 0 10px 25px rgba(100,13,15,.24); }
+      .mine-detail-back { position: relative; z-index: 2; width: 44px; height: 44px; margin-right: auto; border: 0; border-radius: 12px; display: grid; place-items: center; background: rgba(116,16,18,.18); color: #fff; font-size: 32px; }
+      .mine-detail-profile { position: relative; z-index: 2; margin-top: 55px; display: flex; flex-direction: column; align-items: center; }
+      .mine-detail-avatar { width: 54px; height: 54px; margin-bottom: 10px; font-size: 22px; }
+      .mine-detail-sender { color: #fff; font-size: 16px; font-weight: 800; }
+      .mine-detail-wish { margin-top: 5px; color: #ffd992; font-size: 14px; }
+      .mine-detail-summary { position: relative; z-index: 2; margin-top: 30px; color: #89a8cb; font-size: 12px; }
+      .mine-detail-content { width: min(680px,100%); margin: 0 auto; padding: 0 16px max(34px,env(safe-area-inset-bottom)); }
+      .mine-detail-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 10px; color: #89a8cb; font-size: 12px; }
+      .mine-detail-list { overflow: hidden; border: 1px solid rgba(100,200,255,.18); border-radius: 16px; background: rgba(22,62,112,.45); box-shadow: 0 8px 24px rgba(0,10,26,.18); backdrop-filter: blur(12px); }
+      .mine-detail-row { min-height: 72px; padding: 11px 14px; display: grid; grid-template-columns: 40px minmax(0,1fr) auto; gap: 11px; align-items: center; border-bottom: 1px solid rgba(110,180,230,.12); }
+      .mine-detail-row:last-child { border-bottom: 0; }
+      .mine-detail-fortune { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(145deg,#ffe0a3,#e9b950); color: #9b3421; font-size: 16px; font-weight: 850; }
+      .mine-detail-user { min-width: 0; }
+      .mine-detail-name { overflow: hidden; color: #fff; font-size: 14px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+      .mine-detail-time { margin-top: 4px; color: #89a8cb; font-size: 12px; }
+      .mine-detail-value { min-width: 82px; color: #fff; font-size: 14px; font-weight: 750; text-align: right; font-variant-numeric: tabular-nums; }
+      .mine-hit-label { display: block; margin-top: 3px; color: #ff4757; font-size: 12px; font-weight: 850; }
+      .mine-detail-empty { padding: 28px 16px; color: #89a8cb; text-align: center; }
+      @keyframes mine-detail-in { from { transform: translateY(18px); opacity: .2; } to { transform: translateY(0); opacity: 1; } }
+      .battle-toolbar { display: grid; grid-template-columns: 1fr 110px; gap: 10px; align-items: center; margin-bottom: 12px; }
+      .countdown { color: var(--gold); font-variant-numeric: tabular-nums; }
+      .battle-countdown { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; margin-bottom: 12px; padding: 12px 14px; border: 1px solid #2f75a9; border-radius: 7px; background: #0d4e82; color: #fff; }
+      .countdown-number { min-width: 70px; color: #a9dbff; font-size: 24px; font-weight: 850; font-variant-numeric: tabular-nums; }
+      .countdown-track { height: 7px; border-radius: 4px; background: #2e6d9f; overflow: hidden; }
+      .countdown-track span { display: block; height: 100%; background: #79c8ff; transition: width .3s linear; }
+      .battle-recent { display: flex; gap: 7px; overflow-x: auto; padding: 2px 0 10px; scrollbar-width: none; }
+      .battle-recent::-webkit-scrollbar { display: none; }
+      .battle-round-pill { flex: 0 0 auto; min-width: 112px; padding: 8px 9px; border: 1px solid var(--line); border-radius: 6px; background: #fff; font-size: 11px; line-height: 1.45; }
+      .battle-round-pill strong { display: block; color: #b54848; }
+      .battle-map { position: relative; min-height: 680px; overflow: hidden; border: 1px solid #80bedf; border-radius: 7px; background: linear-gradient(#082d4b 0%,#176a9d 50%,#bde6f2 100%); }
+      .battle-map::before { content: ''; position: absolute; inset: 25% -8% 0; background: rgba(18,74,107,.72); clip-path: polygon(0 56%,13% 31%,25% 53%,42% 15%,58% 49%,76% 24%,100% 56%,100% 100%,0 100%); }
+      .battle-map::after { content: ''; position: absolute; left: 10%; right: 10%; bottom: 8%; height: 22%; border-radius: 50%; background: rgba(218,247,251,.22); filter: blur(18px); }
+      .realm-ghost { position: absolute; z-index: 2; top: 12px; left: 50%; width: 62px; height: 72px; transform: translateX(-50%); border-radius: 52% 52% 38% 38%; background: linear-gradient(#d8f5ff,#78bdd7); box-shadow: 0 0 18px rgba(141,226,255,.35); }
+      .realm-ghost::before { content: '幽灵巡游'; position: absolute; top: 72px; left: 50%; width: 90px; transform: translateX(-50%); color: #d8f2ff; font-size: 11px; font-weight: 700; text-align: center; }
+      .realm-ghost::after { content: '••'; position: absolute; left: 0; right: 0; top: 13px; color: #0a4266; font-size: 25px; letter-spacing: 5px; text-align: center; }
+      .realm-ghost.active { box-shadow: 0 0 24px rgba(141,226,255,.85); }
+      .realm-ghost.active::before { content: '幽灵完成选择'; }
+      .rooms { position: absolute; inset: 0; z-index: 1; }
+      .room { position: absolute; width: 39%; min-height: 86px; border: 1px solid #75b8e8; border-radius: 7px; background: rgba(19,68,101,.9); color: #fff; padding: 8px; text-align: left; display: grid; grid-template-columns: 54px 1fr; gap: 8px; align-items: center; }
+      .room:nth-child(1) { left: 3%; top: 16%; }
+      .room:nth-child(2) { right: 3%; top: 17%; }
+      .room:nth-child(3) { left: 8%; top: 36%; }
+      .room:nth-child(4) { right: 8%; top: 37%; }
+      .room:nth-child(5) { left: 3%; top: 56%; }
+      .room:nth-child(6) { right: 3%; top: 57%; }
+      .room:nth-child(7) { left: 8%; top: 76%; }
+      .room:nth-child(8) { right: 8%; top: 77%; }
+      .room.selected { border-color: #ffd166; background: rgba(50,105,147,.92); }
+      .room.ghost { border: 3px solid #8de2ff; background: rgba(22,75,108,.96); box-shadow: 0 0 18px rgba(141,226,255,.82); opacity: 1; }
+      .room:disabled { opacity: .82; }
+      .room.ghost:disabled { opacity: 1; }
+      .room-no { font-size: 15px; font-weight: 800; }
+      .room-visual { position: relative; width: 52px; height: 60px; border: 2px solid rgba(255,255,255,.65); border-radius: 4px 4px 2px 2px; background: repeating-linear-gradient(90deg,#b8dff1 0 9px,#76afd0 10px 13px); box-shadow: inset 0 -8px #315e79, 0 6px 10px rgba(0,0,0,.25); }
+      .room-visual::before { content: ''; position: absolute; left: -5px; right: -5px; top: -12px; height: 16px; background: #d8eef5; clip-path: polygon(0 100%,12% 0,88% 0,100% 100%); border-bottom: 3px solid #477f9d; }
+      .room-visual::after { content: ''; position: absolute; left: 19px; bottom: 0; width: 12px; height: 22px; border-radius: 7px 7px 0 0; background: #173d56; box-shadow: -16px -22px 0 -3px #e6fbff,16px -22px 0 -3px #e6fbff; }
+      .room-data { margin-top: 5px; color: #d6eaf8; font-size: 11px; line-height: 1.45; }
+      .room-status { margin-top: 4px; color: #a9edff; font-size: 10px; font-weight: 800; }
+      .empty { color: var(--muted); text-align: center; padding: 38px 12px; border-top: 1px solid var(--line); }
+      .list { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+      .row { background: var(--surface); padding: 11px 12px; display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; }
+      .row-title { font-weight: 650; }
+      .row-meta { margin-top: 3px; color: var(--muted); font-size: 12px; }
+      .row-detail { margin-top: 5px; color: #4a5a6a; font-size: 13px; line-height: 1.45; }
+      .money { text-align: right; font-variant-numeric: tabular-nums; }
+      .history-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 4px 0 12px; }
+      .history-filter { display: flex; flex-wrap: wrap; gap: 6px; }
+      .history-filter button { min-height: 32px; border: 1px solid var(--line); border-radius: 5px; padding: 0 9px; color: var(--muted); background: var(--surface); }
+      .history-filter button.active { border-color: var(--green); color: var(--text); background: var(--green-soft); }
+      #historyList { display: grid; gap: 10px; border: 0; background: transparent; overflow: visible; }
+      .history-card { min-height: 174px; padding: 14px; border: 1px solid var(--line); border-radius: 7px; background: #fff; }
+      .history-card-head { display: flex; align-items: center; gap: 9px; }
+      .history-icon { width: 34px; height: 34px; border-radius: 6px; display: grid; place-items: center; background: #eaf3fd; color: #2767a8; font-weight: 800; }
+      .history-title { flex: 1; min-width: 0; font-weight: 750; }
+      .history-result { padding: 5px 9px; border-radius: 6px; background: #eaf3fd; color: #2767a8; font-size: 12px; font-weight: 750; }
+      .history-metrics { margin-top: 12px; padding: 9px 4px; border-radius: 6px; background: #f5f9fd; display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); text-align: center; }
+      .history-metric span { display: block; color: #7c8b9a; font-size: 10px; }
+      .history-metric strong { display: block; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; color: #25374a; font-size: 13px; }
+      .rank { width: 28px; color: var(--muted); font-weight: 750; }
+      .rank-row { grid-template-columns: 28px 1fr auto; }
+      .toast { position: fixed; z-index: 30; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom)); transform: translateX(-50%); max-width: calc(100% - 28px); padding: 10px 14px; border: 1px solid #434b52; border-radius: 6px; background: #292e32; color: #fff; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+      .loading { opacity: .62; pointer-events: none; }
+      .result-modal { position: fixed; inset: 0; z-index: 45; display: grid; place-items: center; padding: 18px; background: rgba(8,28,44,.78); }
+      .result-modal[hidden] { display: none; }
+      .result-dialog { width: min(350px,100%); padding: 22px; border-radius: 8px; background: #fff; text-align: center; box-shadow: 0 18px 60px rgba(0,0,0,.28); }
+      .result-emblem { width: 72px; height: 72px; margin: 0 auto 12px; border-radius: 50%; display: grid; place-items: center; background: #e7f2fd; color: #2767a8; font-size: 28px; font-weight: 850; }
+      .result-dialog h3 { margin: 0 0 7px; font-size: 22px; }
+      .result-dialog p { margin: 0 0 18px; color: var(--muted); line-height: 1.55; }
+      .match3-head { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 10px; }
+      .match3-stat { padding: 9px; border: 1px solid var(--line); border-radius: 6px; background: #fff; text-align: center; }
+      .match3-stat span { display: block; color: var(--muted); font-size: 10px; }
+      .match3-stat strong { display: block; margin-top: 3px; font-size: 16px; }
+      .match3-board { width: min(100%,520px); aspect-ratio: 1; margin: 0 auto; padding: 6px; display: grid; grid-template-columns: repeat(8,minmax(0,1fr)); grid-template-rows: repeat(8,minmax(0,1fr)); gap: 4px; border-radius: 8px; background: #b8d3e8; box-shadow: inset 0 0 0 1px #7fa7c5; }
+      .match3-tile { min-width: 0; min-height: 0; padding: 0; border: 0; border-radius: 6px; box-shadow: inset 0 -4px rgba(0,0,0,.16), inset 0 2px rgba(255,255,255,.4); }
+      .match3-tile.selected { outline: 3px solid #fff; box-shadow: 0 0 0 3px #2767a8, inset 0 -4px rgba(0,0,0,.14); }
+      .gem-0 { background: #ec5d69; } .gem-1 { background: #49a7e8; } .gem-2 { background: #52b788; }
+      .gem-3 { background: #f2bd42; } .gem-4 { background: #9a6de0; } .gem-5 { background: #ef8b45; }
+      .match3-actions { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
+      @media (max-width: 660px) {
+        .top-inner { min-width: 0; }
+        .brand { flex: 1; min-width: 0; }
+        .balance { min-width: 0; margin-left: 0; flex: 0 1 auto; justify-content: flex-end; white-space: nowrap; font-size: 13px; }
+        .balance strong { font-size: 16px; }
+        .game-grid { grid-template-columns: 1fr; gap: 7px; }
+        .game-card { min-width: 0; min-height: 78px; padding: 10px; grid-template-columns: 38px minmax(0,1fr) auto; column-gap: 9px; }
+        .game-mark { width: 34px; height: 34px; font-size: 11px; }
+        .game-title { font-size: 14px; line-height: 1.35; }
+        .game-meta { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .game-open { font-size: 11px; }
+        .battle-map { min-height: 650px; }
+        .room { width: 45%; grid-template-columns: 45px 1fr; padding: 7px; }
+        .room-visual { width: 43px; }
+        .wallet-strip { grid-template-columns: 1fr 96px auto; }
+        .wallet-copy { grid-column: 1 / -1; }
+        .convert-direction { width: 100%; }
+        .mine-create { grid-template-columns: 1fr 88px; }
+        .mine-create .btn { grid-column: 1 / -1; }
+        .history-toolbar { align-items: flex-start; flex-direction: column; }
+      }
+      @media (max-width: 480px) {
+        main { padding: 12px; }
+        .top-inner { padding-inline: 12px; gap: 8px; }
+        .wallet-strip { grid-template-columns: minmax(0, 1fr) 88px; }
+        .wallet-strip .btn { grid-column: 1 / -1; width: 100%; }
+        .amount-input { width: 88px; }
+        .convert-direction { width: 100%; max-width: 100%; }
+      }
+      @media (max-width: 420px) {
+        .rps-stage { grid-template-columns: 1fr 48px 1fr; min-height: 200px; }
+        .versus { width: 46px; height: 46px; font-size: 15px; }
+        .fighter-art { min-height: 74px; font-size: 52px; }
+        .mine-item { grid-template-columns: 54px 1fr; }
+        .mine-item > .btn { grid-column: 2; justify-self: start; }
+        .envelope { width: 54px; height: 68px; }
+      }
+
+      /* 全局深蓝科技游戏视觉层 */
+      :root {
+        color-scheme: dark;
+        --bg: #051937;
+        --surface: rgba(22,62,112,.45);
+        --surface-2: rgba(15,52,96,.88);
+        --line: rgba(100,200,255,.18);
+        --text: #fff;
+        --muted: #89a8cb;
+        --green: #00aaf0;
+        --green-soft: rgba(0,170,240,.16);
+        --gold: #00c0f9;
+        --red: #ff4757;
+        --blue: #0099e8;
+      }
+      html, body {
+        font-size: 14px;
+        background-color: #051937;
+        background-image:
+          radial-gradient(circle at 50% -12%,rgba(53,139,204,.28),transparent 52%),
+          linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),
+          linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px),
+          linear-gradient(180deg,#0f3460 0%,#051937 100%);
+        background-size: auto,24px 24px,24px 24px,auto;
+        background-attachment: fixed;
+      }
+      body { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+      .app { background: transparent; }
+      .topbar { color: #fff; background: rgba(5,25,55,.9); border-bottom-color: rgba(110,180,230,.12); backdrop-filter: blur(14px); }
+      .brand { font-size: 19px; font-weight: 750; }
+      .balance { color: #89a8cb; }
+      .balance strong { color: #00c0f9; }
+      main { padding-bottom: 28px; }
+      input, select { border-color: var(--line); border-radius: 12px; background: rgba(22,62,112,.45); color: #e6f2ff; transition: border-color .2s ease,box-shadow .2s ease; }
+      input:focus,select:focus { outline: 0; border-color: rgba(0,192,249,.82); box-shadow: 0 0 0 3px rgba(0,170,240,.16),0 0 18px rgba(0,170,240,.14); }
+      .btn { border-color: var(--line); border-radius: 12px; background: rgba(22,62,112,.58); color: #e6f2ff; transition: transform .16s ease,background .2s ease,border-color .2s ease,box-shadow .2s ease; }
+      button:active:not(:disabled) { transform: scale(.96); }
+      .btn.primary { border-color: rgba(100,200,255,.36); background: linear-gradient(135deg,#0099e8,#00c0f9); box-shadow: 0 0 18px rgba(0,170,240,.25); animation: primary-breathe 2.2s ease-in-out infinite alternate; }
+      .btn.primary:disabled { opacity: .4; animation: none; }
+      .btn.ghost { color: #e6f2ff; }
+      .btn.danger { border-color: transparent; color: #fff; background: linear-gradient(135deg,#d6336c,#b02a59); }
+      .tabs { position: fixed; z-index: 25; left: 0; right: 0; bottom: 0; max-width: none; height: calc(70px + env(safe-area-inset-bottom)); padding: 4px max(8px,env(safe-area-inset-left)) env(safe-area-inset-bottom) max(8px,env(safe-area-inset-right)); display: grid; grid-template-columns: repeat(4,1fr); gap: 3px; border-top: 1px solid rgba(110,180,230,.12); background: rgba(5,25,55,.9); box-shadow: 0 -8px 26px rgba(0,0,0,.28); backdrop-filter: blur(16px); }
+      .tab { min-width: 0; height: 60px; padding: 5px 2px; display: grid; place-items: center; align-content: center; gap: 3px; border: 0; border-radius: 12px; color: #89a8cb; font-size: 12px; transition: color .2s ease,background .2s ease,transform .2s ease; }
+      .tab.active { border: 0; color: #e6f2ff; background: rgba(0,170,240,.13); transform: translateY(-2px); }
+      .nav-icon { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 12px; transition: transform .2s ease,background .2s ease,box-shadow .2s ease; }
+      .nav-icon svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+      .tab.active .nav-icon { color: #fff; background: linear-gradient(135deg,#0099e8,#00c0f9); transform: translateY(-1px) scale(1.08); box-shadow: 0 4px 14px rgba(0,170,240,.25); }
+      .tab.active .nav-icon svg { stroke-width: 2.2; }
+      .home-copy { margin: 4px 0 16px; }
+      .home-copy h1 { margin: 0; font-size: 19px; font-weight: 750; }
+      .home-copy p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+      .home-game-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+      .home-game-card { width: 100%; min-height: 116px; padding: 18px; display: grid; grid-template-columns: 58px minmax(0,1fr) auto; align-items: center; gap: 16px; border: 1px solid var(--line); border-radius: 16px; color: #fff; text-align: left; background: var(--surface); box-shadow: 0 10px 24px rgba(0,9,24,.28); transition: transform .16s ease,border-color .2s ease,box-shadow .2s ease; backdrop-filter: blur(12px); }
+      .home-game-card:active { transform: scale(.96); border-color: rgba(0,192,249,.7); }
+      .home-game-card:nth-child(n) { background: linear-gradient(135deg,rgba(22,62,112,.62),rgba(9,38,76,.7)); }
+      .home-game-icon { width: 58px; height: 58px; border-radius: 16px; display: grid; place-items: center; background: rgba(0,170,240,.12); border: 1px solid var(--line); font-size: 25px; }
+      .home-game-title { display: block; font-size: 16px; font-weight: 750; }
+      .home-game-meta { display: block; margin-top: 5px; color: #89a8cb; font-size: 12px; }
+      .selection-card { padding: 22px; border: 1px solid var(--line); border-radius: 16px; color: #fff; background: var(--surface); box-shadow: 0 10px 24px rgba(0,13,33,.28); backdrop-filter: blur(12px); }
+      .selection-card h2 { margin-top: 22px; font-size: 19px; }
+      .selection-card p { margin: 8px 0 0; color: #89a8cb; line-height: 1.55; }
+      .selection-mark { font-size: 38px; color: #00c0f9; }
+      .selection-rule { margin: 14px 0; padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); color: #e6f2ff; line-height: 1.55; }
+      .selection-options { margin: 0 0 14px; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+      .selection-options strong { display: block; margin-bottom: 10px; }
+      .stake-options { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+      .stake-option { min-height: 42px; border: 1px solid var(--line); border-radius: 20px; background: rgba(22,62,112,.45); color: #e6f2ff; font-weight: 750; transition: transform .16s ease,background .2s ease,border-color .2s ease,box-shadow .2s ease; }
+      .stake-option.active { border-color: rgba(0,192,249,.7); color: #fff; background: linear-gradient(135deg,#0099e8,#00c0f9); box-shadow: 0 0 16px rgba(0,170,240,.25); }
+      .selection-actions { display: flex; gap: 8px; }
+      .selection-actions .primary { flex: 1; }
+      .game-card,.result-box,.mine-item,.history-card,.row,.match3-stat { border-color: var(--line); border-radius: 16px; background: var(--surface); color: var(--text); box-shadow: 0 5px 16px rgba(0,10,26,.24); backdrop-filter: blur(12px); }
+      .game-card:hover,.game-card.active { border-color: #63b7fb; background: #123b67; }
+      .game-surface { border-color: var(--line); }
+      .fighter.user { background: #0d416f; color: #a8dcff; }
+      .fighter.bot { background: #163654; color: #ff9cab; }
+      .rps-stage,.rps-choice { border-color: var(--line); border-radius: 16px; background: var(--surface); color: var(--text); }
+      .fighter.shaking .hand-icon { animation: hand-shake .14s ease-in-out infinite alternate; }
+      .fighter.winner .hand-icon { transform: scale(1.18); transition: transform .38s cubic-bezier(.2,.9,.2,1.3); }
+      .fighter.loser .hand-icon { transform: scale(.78); opacity: .58; transition: transform .38s ease,opacity .38s ease; }
+      .versus.win { border-radius: 8px; background: #2faa84; animation: result-pop .3s ease-out; }
+      .versus.loss { border-radius: 8px; background: #e34f68; animation: result-pop .3s ease-out; }
+      .versus.draw { border-radius: 8px; background: #b98932; animation: result-pop .3s ease-out; }
+      @keyframes hand-shake { from { transform: translateX(-8px) rotate(-7deg); } to { transform: translateX(8px) rotate(7deg); } }
+      @keyframes result-pop { 0% { transform: scale(.55); } 70% { transform: scale(1.18); } 100% { transform: scale(1); } }
+      .battle-recent { padding-bottom: 12px; }
+      .battle-round-pill { border-color: var(--line); border-radius: 20px; background: var(--surface); color: #e6f2ff; }
+      .battle-round-pill strong { color: #00c0f9; }
+      .battle-map { min-height: 446px; padding: 92px 10px 14px; border-color: #4089bd; background: linear-gradient(180deg,#051b38 0%,#0d4b7b 55%,#126c93 100%); }
+      .rooms { position: relative; inset: auto; z-index: 3; width: 100%; max-width: 850px; height: 326px; margin: auto; display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); grid-template-rows: repeat(2,minmax(0,1fr)); gap: 10px; }
+      .room,.room:nth-child(n) { position: relative; inset: auto; width: auto; min-width: 0; min-height: 0; padding: 8px 5px; display: flex; flex-direction: column; justify-content: center; gap: 6px; text-align: center; border-color: #61a9dd; background: rgba(10,50,84,.93); animation: room-breathe 1.8s ease-in-out infinite alternate; }
+      .room-visual { width: 45px; height: 52px; margin: 0 auto; flex: 0 0 auto; }
+      .room-data { font-size: 10px; }
+      .room.selected { border-color: #82ddff; background: rgba(20,92,142,.96); }
+      .room.ghost { border-color: #ff5572; background: rgba(91,20,43,.96); box-shadow: 0 0 22px rgba(255,65,96,.9); animation: room-danger .42s ease-in-out infinite alternate; }
+      .room.ghost .room-status { color: #ffb3bf; }
+      .killer-footprints { position: absolute; z-index: 5; top: 7px; right: 8px; width: 30px; height: 24px; display: none; animation: killer-enter .8s ease-out both; }
+      .room.ghost .killer-footprints { display: block; }
+      .killer-footprints i { position: absolute; width: 8px; height: 14px; border-radius: 60% 45% 55% 40%; background: #ff4968; box-shadow: 0 -5px 0 -2px #ff8b9e; transform: rotate(-26deg); }
+      .killer-footprints i:first-child { left: 2px; bottom: 1px; }
+      .killer-footprints i:last-child { right: 2px; top: 1px; transform: rotate(24deg); }
+      .battle-countdown { border-color: var(--line); border-radius: 16px; background: var(--surface); }
+      .battle-countdown.frozen .countdown-number { color: #fff; background: #dc3f5c; border-radius: 7px; padding: 7px; animation: countdown-jump .45s ease-in-out infinite alternate; }
+      .battle-countdown .rule-line { color: #cae6f8; }
+      .issue-badge { display: inline-block; margin-left: 6px; padding: 3px 9px; border: 1px solid var(--line); border-radius: 20px; color: #00c0f9; background: rgba(0,170,240,.12); font-size: 12px; vertical-align: middle; }
+      @keyframes room-breathe { from { box-shadow: 0 0 5px rgba(88,178,239,.18); border-color: #3c83b7; } to { box-shadow: 0 0 17px rgba(86,187,255,.52); border-color: #79caff; } }
+      @keyframes room-danger { from { box-shadow: 0 0 9px rgba(255,76,104,.55); } to { box-shadow: 0 0 26px rgba(255,76,104,1); } }
+      @keyframes killer-enter { from { transform: translateX(22px) translateY(-8px); opacity: .1; } to { transform: translateX(0) translateY(0); opacity: 1; } }
+      @keyframes countdown-jump { from { transform: scale(1); } to { transform: scale(1.13); } }
+      .mine-create { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 0 0 14px; color: var(--muted); }
+      .result-dialog { border: 1px solid var(--line); border-radius: 16px; background: linear-gradient(180deg,rgba(22,62,112,.96),rgba(5,25,55,.98)); color: var(--text); backdrop-filter: blur(16px); }
+      .mine-claim { border-color: #3b6b95; color: #b3d0ea; }
+      .mine-progress { background: #081b33; }
+      .history-metrics { background: #0b294d; }
+      .history-metric span,.row-meta,.row-detail { color: var(--muted); }
+      .history-metric strong { color: var(--text); }
+      .history-filter button { border-color: #315f89; color: #9dbbd7; background: #0c2b50; }
+      .history-filter button.active { border-color: #64b8f7; color: #fff; background: #195b91; }
+      .win { color: #2ed573 !important; }
+      .loss { color: #ff4757 !important; }
+      .draw { color: #00c0f9 !important; }
+      .match3-board { background: #0a294d; box-shadow: inset 0 0 0 1px #346a96; }
+      .toast { border-color: #4284b8; background: #071b35; }
+      .battle-toolbar { padding: 12px; grid-template-columns: minmax(0,1fr) minmax(180px,240px); border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+      .battle-bet-copy { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+      .battle-bet-copy strong { color: #fff; font-size: 16px; }
+      .battle-bet-copy span { color: #89a8cb; font-size: 12px; }
+      .battle-bet-options { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; }
+      .battle-bet-options .stake-option { min-width: 0; padding: 0 5px; }
+      h2,.panel-head h2 { font-size: 19px; font-weight: 750; }
+      .game-title,.module-title { font-size: 16px; font-weight: 750; }
+      .rule-line,.game-meta,.mine-meta,.row-meta { font-size: 12px; }
+      @keyframes primary-breathe { from { box-shadow: 0 0 10px rgba(0,170,240,.14); } to { box-shadow: 0 0 24px rgba(0,170,240,.36); } }
+      @media (max-width: 660px) {
+        .battle-map { min-height: 424px; padding: 84px 7px 11px; }
+        .rooms { height: 320px; gap: 6px; }
+        .room,.room:nth-child(n) { width: auto; grid-template-columns: none; padding: 6px 3px; }
+        .room-visual { width: 39px; height: 46px; }
+        .room-no { font-size: 12px; }
+        .room-data { font-size: 9px; white-space: nowrap; }
+        .room-status { font-size: 9px; }
+        .mine-create { align-items: stretch; flex-direction: column; }
+        .battle-toolbar { grid-template-columns: 1fr; }
+      }
+      @media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="top-inner">
+          <div class="brand">游戏大厅</div>
+          <div class="balance">游戏积分 <strong id="balance">--</strong></div>
+        </div>
+        <nav class="tabs">
+          <button class="tab active" data-view="home"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8"></path><path d="M5 10v10h14V10"></path><path d="M9 20v-6h6v6"></path></svg></span><span>首页</span></button>
+          <button class="tab" data-view="lobby"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 11h4"></path><path d="M8 9v4"></path><path d="M15 12h.01"></path><path d="M18 10h.01"></path><path d="M17.3 5H6.7A4.7 4.7 0 0 0 2 9.7v4.6A4.7 4.7 0 0 0 6.7 19c1.4 0 2.4-.7 3.3-1.7h4c.9 1 1.9 1.7 3.3 1.7a4.7 4.7 0 0 0 4.7-4.7V9.7A4.7 4.7 0 0 0 17.3 5Z"></path></svg></span><span>游戏大厅</span></button>
+          <button class="tab" data-view="history"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path><path d="M12 7v5l3 2"></path></svg></span><span>我的记录</span></button>
+          <button class="tab" data-view="profile"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg></span><span>个人中心</span></button>
+        </nav>
+      </header>
+
+      <main>
+        <section class="view" id="view-home">
+          <div class="home-copy">
+            <h1>选择你的游戏</h1>
+            <p>先进入专属选择页，确认规则后再开始对局</p>
+          </div>
+          <div class="home-game-grid">
+            <button class="home-game-card" data-home-game="battle"><span class="home-game-icon">8</span><span><span class="home-game-title">大逃杀</span><span class="home-game-meta">八房生存 · 随机淘汰2至3房</span></span><span>›</span></button>
+            <button class="home-game-card" data-home-game="rps"><span class="home-game-icon">拳</span><span><span class="home-game-title">石头剪刀布</span><span class="home-game-meta">左右摇拳 · 定格揭晓胜负</span></span><span>›</span></button>
+            <button class="home-game-card" data-home-game="mine"><span class="home-game-icon">雷</span><span><span class="home-game-title">扫雷红包</span><span class="home-game-meta">拆红包 · 领取明细</span></span><span>›</span></button>
+          </div>
+        </section>
+
+        <section class="view" id="view-lobby" hidden>
+          <div class="wallet-strip">
+            <div class="wallet-copy">
+              <strong>AI额度与游戏积分 1:1 兑换</strong>
+              <span>当前可兑回 <b id="redeemableBalance">--</b>；参与游戏后的积分不可兑回</span>
+            </div>
+            <select class="convert-direction" id="convertDirection" aria-label="兑换方向">
+              <option value="ai_to_game">AI额度 → 游戏积分</option>
+              <option value="game_to_ai">游戏积分 → AI额度</option>
+            </select>
+            <input class="amount-input" id="convertAmount" type="number" min="10" max="100000" step="10" value="10" aria-label="兑换数量">
+            <button class="btn" id="convertBtn">转为积分</button>
+          </div>
+
+          <div id="gameMenu" class="game-grid">
+            <button class="game-card" data-game="rps">
+              <span class="game-mark mark-rps">RPS</span>
+              <span class="game-title">石头剪刀布</span>
+              <span class="game-meta">可选10/50/100积分，对手随机出拳，获胜到账1.5倍</span>
+              <span class="game-open">进入对局</span>
+            </button>
+            <button class="game-card" data-game="mine">
+              <span class="game-mark mark-mine">7</span>
+              <span class="game-title">七人扫雷红包</span>
+              <span class="game-meta">最早发布优先，7天未领完退回剩余积分</span>
+              <span class="game-open">查看红包</span>
+            </button>
+            <button class="game-card" data-game="battle">
+              <span class="game-mark mark-battle">8</span>
+              <span class="game-title">八房生存局</span>
+              <span class="game-meta">随机淘汰2至3房，失败池扣10%，含对手投入按幸存占比分配</span>
+              <span class="game-open">选择房间</span>
+            </button>
+            <button class="game-card" data-game="match3">
+              <span class="game-mark mark-mine">消</span>
+              <span class="game-title">宝石消消乐</span>
+              <span class="game-meta">每关首次通关奖1积分，每10关宝箱，失败可看广告复活</span>
+              <span class="game-open">开始闯关</span>
+            </button>
+          </div>
+
+          <section id="gameSelection" hidden>
+            <button class="btn ghost" id="selectionBack">‹ 返回游戏大厅</button>
+            <div class="selection-card">
+              <div class="selection-mark" id="selectionMark">◇</div>
+              <h2 id="selectionTitle">选择游戏</h2>
+              <p id="selectionSubtitle"></p>
+            </div>
+            <div class="selection-rule"><strong>本局规则</strong><div id="selectionRule" style="margin-top:8px"></div></div>
+            <div class="selection-options" id="selectionOptions">
+              <strong id="selectionStakeLabel">本局积分</strong>
+              <div class="stake-options" id="selectionStakes">
+                <button class="stake-option active" data-stake="10">10积分</button>
+                <button class="stake-option" data-stake="50">50积分</button>
+                <button class="stake-option" data-stake="100">100积分</button>
+              </div>
+            </div>
+            <div class="selection-actions"><button class="btn primary" id="selectionEnter">进入对局</button></div>
+          </section>
+
+          <section class="game" id="game-rps" hidden>
+            <div class="panel-head">
+              <button class="back" aria-label="返回">&#8249;</button>
+              <h2>石头剪刀布</h2>
+              <span class="rule-line" id="rpsStakeRule">10积分 · 1.5倍</span>
+            </div>
+            <div class="game-surface">
+              <div class="rps-stage">
+                <div class="fighter user"><span class="fighter-name">你</span><span class="fighter-art" id="rpsUserArt"></span><span class="fighter-choice" id="rpsUserLabel">石头</span></div>
+                <div class="versus" id="rpsCountdown">VS</div>
+                <div class="fighter bot"><span class="fighter-name">对手</span><span class="fighter-art" id="rpsBotArt">?</span><span class="fighter-choice" id="rpsBotLabel">等待揭晓</span></div>
+              </div>
+              <div class="rps-controls">
+                <button class="rps-choice" data-choice="rock"><span class="rps-symbol" data-hand="rock"></span><span>石头</span></button>
+                <button class="rps-choice" data-choice="scissors"><span class="rps-symbol" data-hand="scissors"></span><span>剪刀</span></button>
+                <button class="rps-choice" data-choice="paper"><span class="rps-symbol" data-hand="paper"></span><span>布</span></button>
+              </div>
+              <div class="result-box" id="rpsResult">
+                <div class="result-title">等待出拳</div>
+                <div class="result-detail">投入在点击后由服务端扣除，对手同时随机出拳。</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="game" id="game-mine" hidden>
+            <div class="panel-head">
+              <button class="back" aria-label="返回">&#8249;</button>
+              <h2>七人扫雷红包</h2>
+              <span class="rule-line">红包总额可选 · 中雷1.5倍</span>
+            </div>
+            <div class="game-surface">
+              <div class="mine-create">
+                <span>最早发布优先 · 7天未领完自动退回剩余积分</span>
+                <button class="btn primary" id="openMineCreateBtn">发布红包</button>
+              </div>
+              <div class="mine-list" id="mineList"></div>
+            </div>
+          </section>
+
+          <section class="game" id="game-battle" hidden>
+            <div class="panel-head">
+              <button class="back" aria-label="返回">&#8249;</button>
+              <h2>八房生存局 <span class="issue-badge" id="battleIssue">第--期</span></h2>
+              <span class="rule-line countdown" id="battleCountdown">--</span>
+            </div>
+            <div class="game-surface">
+              <div class="battle-recent" id="battleRecent"></div>
+              <div class="battle-countdown">
+                <div class="countdown-number" id="battleCountdownLarge">--秒</div>
+                <div><div class="rule-line" style="margin:0 0 7px">前20秒可切换，最后5秒锁定，随机淘汰2至3房</div><div class="countdown-track"><span id="battleProgress"></span></div></div>
+              </div>
+              <div class="battle-toolbar">
+                <div class="battle-bet-copy">
+                  <strong id="battleSelectionStatus">请先选择房间</strong>
+                  <span id="battleCurrentStake">每次可追加1、10或50积分，多次投入自动累加</span>
+                </div>
+                <div class="battle-bet-options" id="battleBetOptions">
+                  <button class="stake-option" data-battle-stake="1">+1</button>
+                  <button class="stake-option" data-battle-stake="10">+10</button>
+                  <button class="stake-option" data-battle-stake="50">+50</button>
+                </div>
+              </div>
+              <div class="battle-map"><div class="realm-ghost" id="realmGhost"></div><div class="rooms" id="battleRooms"></div></div>
+              <div class="result-box" id="battlePrevious" hidden></div>
+            </div>
+          </section>
+
+          <section class="game" id="game-match3" hidden>
+            <div class="panel-head">
+              <button class="back" aria-label="返回">&#8249;</button>
+              <h2>宝石消消乐</h2>
+              <span class="rule-line">首次通关 +1积分</span>
+            </div>
+            <div class="game-surface">
+              <div class="match3-head">
+                <div class="match3-stat"><span>关卡</span><strong id="match3Level">--</strong></div>
+                <div class="match3-stat"><span>得分</span><strong id="match3Score">--</strong></div>
+                <div class="match3-stat"><span>剩余步数</span><strong id="match3Moves">--</strong></div>
+              </div>
+              <div class="match3-board" id="match3Board"></div>
+              <div class="match3-actions">
+                <button class="btn primary" id="match3Start">开始当前关</button>
+                <button class="btn" id="match3Recover" hidden>看广告复活</button>
+                <button class="btn" id="match3Chest" hidden>开启宝箱</button>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <section class="view" id="view-history" hidden>
+          <div class="panel-head"><h2>最近20局</h2></div>
+          <div class="history-toolbar">
+            <span class="rule-line">选择游戏查看完整结果</span>
+            <div class="history-filter" id="historyFilter">
+              <button class="active" data-history-type="">全部</button>
+              <button data-history-type="rps">石头剪刀布</button>
+              <button data-history-type="mine">扫雷红包</button>
+              <button data-history-type="battle">八房生存局</button>
+              <button data-history-type="match3">消消乐</button>
+            </div>
+          </div>
+          <div class="list" id="historyList"></div>
+        </section>
+
+        <section class="view" id="view-profile" hidden>
+          <div class="panel-head"><h2>个人中心</h2></div>
+          <div class="selection-card"><div class="selection-mark">○</div><h2>我的游戏账户</h2><p>积分与额度不可提现、不可转赠；全部结算以服务端记录为准。</p></div>
+          <div class="panel-head" style="margin-top:18px"><h2>今日净盈利排行</h2></div>
+          <div class="list" id="rankList"></div>
+        </section>
+      </main>
+    </div>
+    <div class="toast" id="toast" hidden></div>
+    <div class="mine-open-modal" id="mineOpenModal" hidden>
+      <div class="mine-open-sender"><span class="mine-open-avatar" id="mineOpenAvatar">福</span><span id="mineOpenSender">用户的红包</span></div>
+      <div class="mine-open-greeting">恭喜发财，大吉大利</div>
+      <div class="mine-open-envelope">
+        <div class="mine-open-flap"></div>
+        <button class="mine-open-action" id="mineOpenAction" aria-label="打开红包">開</button>
+        <div class="mine-open-status" id="mineOpenStatus">点击開领取红包</div>
+      </div>
+      <button class="mine-open-close" id="mineOpenClose" aria-label="关闭">×</button>
+    </div>
+    <section class="mine-detail-page" id="mineDetailPage" hidden>
+      <div class="mine-detail-top">
+        <button class="mine-detail-back" id="mineDetailBack" aria-label="返回">‹</button>
+        <div class="mine-detail-profile">
+          <div class="mine-detail-avatar" id="mineDetailAvatar">福</div>
+          <div class="mine-detail-sender" id="mineDetailSender">用户的红包</div>
+          <div class="mine-detail-wish">恭喜发财，大吉大利</div>
+        </div>
+        <div class="mine-detail-summary" id="mineDetailSummary">7个红包共10积分</div>
+      </div>
+      <div class="mine-detail-content">
+        <div class="mine-detail-meta"><span id="mineDetailProgress">0/7 已领取</span><span id="mineDetailDigit">雷号0</span></div>
+        <div class="mine-detail-list" id="mineDetailList"></div>
+      </div>
+    </section>
+    </div>
+    <div class="result-modal" id="mineCreateModal" hidden>
+      <div class="result-dialog">
+        <div class="result-emblem">发</div>
+        <h3>发布扫雷红包</h3>
+        <p>选择红包总积分与雷号，发布前会校验积分是否足够承担中雷赔付。</p>
+        <div class="selection-options">
+          <strong>红包总积分</strong>
+          <div class="stake-options" id="mineCreateStakes">
+            <button class="stake-option active" data-mine-total="10">10积分</button>
+            <button class="stake-option" data-mine-total="50">50积分</button>
+            <button class="stake-option" data-mine-total="100">100积分</button>
+          </div>
+        </div>
+        <select id="mineDigit" aria-label="雷号" style="width:100%;margin-bottom:12px">
+          <option value="0">雷号 0</option><option value="1">雷号 1</option>
+          <option value="2">雷号 2</option><option value="3">雷号 3</option>
+          <option value="4">雷号 4</option><option value="5">雷号 5</option>
+          <option value="6">雷号 6</option><option value="7">雷号 7</option>
+          <option value="8">雷号 8</option><option value="9">雷号 9</option>
+        </select>
+        <div class="selection-actions">
+          <button class="btn" id="mineCreateCancel">取消</button>
+          <button class="btn primary" id="createMineBtn">确认发布</button>
+        </div>
+      </div>
+    </div>
+    <div class="result-modal" id="resultModal" hidden>
+      <div class="result-dialog">
+        <div class="result-emblem" id="resultEmblem">胜</div>
+        <h3 id="resultModalTitle">对局结果</h3>
+        <p id="resultModalDetail"></p>
+        <button class="btn primary" id="resultModalClose">知道了</button>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        var pending = new Map();
+        var state = {
+          dashboard: null,
+          battle: null,
+          match3: null,
+          match3Selected: null,
+          activeGame: null,
+          lastBattleResultId: null,
+          selectedStake: { rps: 10 },
+          selectedBattleRoundId: null,
+          selectedBattleRoom: null,
+          mineCreateTotal: 10,
+          pendingMine: null
+        };
+        var toastTimer;
+
+        function uid() {
+          if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+          return 'req_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+        }
+
+        function bridgeCall(action, payload) {
+          payload = payload || {};
+          return new Promise(function (resolve, reject) {
+            if (!window.GongyiBridge || !GongyiBridge.postMessage) {
+              reject(new Error('请从APP内打开游戏大厅'));
+              return;
+            }
+            var requestId = uid();
+            var timeout = setTimeout(function () {
+              pending.delete(requestId);
+              reject(new Error('请求超时，请刷新状态后再操作'));
+            }, action === 'match3_recover_ad' ? 600000 : 15000);
+            pending.set(requestId, { resolve: resolve, reject: reject, timeout: timeout });
+            GongyiBridge.postMessage(JSON.stringify({
+              type: 'game_api_request', requestId: requestId, action: action, payload: payload
+            }));
+          });
+        }
+
+        window.onGongyiMessage = function (raw) {
+          try {
+            var message = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            if (!message || message.type !== 'game_api_result') return;
+            var task = pending.get(message.requestId);
+            if (!task) return;
+            pending.delete(message.requestId);
+            clearTimeout(task.timeout);
+            if (message.ok) task.resolve(message.data || {});
+            else task.reject(new Error((message.error && message.error.message) || '操作失败'));
+          } catch (_) {}
+        };
+
+        function actionPayload(extra) {
+          return Object.assign({ action_request_id: uid() }, extra || {});
+        }
+
+        function toast(text) {
+          var element = document.getElementById('toast');
+          element.textContent = text;
+          element.hidden = false;
+          clearTimeout(toastTimer);
+          toastTimer = setTimeout(function () { element.hidden = true; }, 2600);
+        }
+
+        function setLoading(element, loading) {
+          element.disabled = loading;
+          element.classList.toggle('loading', loading);
+        }
+
+        function delay(ms) {
+          return new Promise(function (resolve) { setTimeout(resolve, ms); });
+        }
+
+        var rpsLabel = { rock: '石头', scissors: '剪刀', paper: '布' };
+        var handPaths = {
+          rock: { box: '0 0 384 512', path: 'M7.4 253.6C2.6 245.9 0 237.1 0 228l0-36c0-26.5 21.5-48 48-48l16 0 0-80c0-26.5 21.5-48 48-48 17.3 0 32.4 9.1 40.9 22.8 4.3-22.1 23.8-38.8 47.1-38.8 23.4 0 42.9 16.8 47.1 38.9 7.3-4.4 15.8-6.9 24.9-6.9 22.1 0 40.8 15 46.3 35.4 5.5-2.2 11.4-3.4 17.7-3.4 26.5 0 48 21.5 48 48l0 96.9c0 9.9-2.3 19.7-6.8 28.6l-39.6 79.1c-10.8 21.7-33 35.4-57.2 35.4L96 352c-16.5 0-31.8-8.4-40.6-22.4l-48-76zM32 480l0-48c0-17.7 14.3-32 32-32l256 0c17.7 0 32 14.3 32 32l0 48c0 17.7-14.3 32-32 32L64 512c-17.7 0-32-14.3-32-32z' },
+          scissors: { box: '0 0 512 512', path: 'M40 208c-22.1 0-40 17.9-40 40s17.9 40 40 40l180.2 0c-7.6 8.5-12.2 19.7-12.2 32 0 25.3 19.5 46 44.3 47.9-7.7 8.5-12.3 19.8-12.3 32.1 0 26.5 21.5 48 48 48l96 0c70.7 0 128-57.3 128-128l0-113.1c0-40.2-16-78.8-44.4-107.3-22.8-22.8-53.6-35.6-85.8-35.6L336 64c-21.3 0-39.3 13.9-45.6 33.1l74.5 23.7c8.4 2.7 13.1 11.7 10.4 20.1s-11.7 13.1-20.1 10.4l-67.1-21.4 0 .1-204-64.1C62.9 59.2 40.5 70.9 33.9 92s5.1 43.5 26.2 50.2L269.5 208 40 208z' },
+          paper: { box: '0 0 512 512', path: 'M288 32c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 208c0 8.8-7.2 16-16 16s-16-7.2-16-16l0-176c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 272c0 1.5 0 3.1 .1 4.6L67.6 283c-16-15.2-41.3-14.6-56.6 1.4S-3.6 325.7 12.4 341L124.8 448c43.1 41.1 100.4 64 160 64l19.2 0c97.2 0 176-78.8 176-176l0-208c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 112c0 8.8-7.2 16-16 16s-16-7.2-16-16l0-176c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 176c0 8.8-7.2 16-16 16s-16-7.2-16-16l0-208z' }
+        };
+
+        function handSvg(choice) {
+          var icon = handPaths[choice];
+          if (!icon) return '?';
+          return '<svg class="hand-icon" viewBox="' + icon.box + '" aria-hidden="true"><path d="' + icon.path + '"></path></svg>';
+        }
+
+        document.querySelectorAll('[data-hand]').forEach(function (node) {
+          node.innerHTML = handSvg(node.dataset.hand);
+        });
+
+        function points2(value) {
+          var number = Number(value || 0);
+          return Number.isFinite(number) ? number.toFixed(2) : '0.00';
+        }
+
+        function tailDigit(value) {
+          return Math.abs(Math.round(Number(value || 0) * 100)) % 10;
+        }
+
+        function safeDisplayName(value) {
+          var name = String(value || '').trim();
+          if (!name || /^__mine_/i.test(name) || /^__.+__$/.test(name)) return '对手';
+          if (/^preview_user(?:\b|\s|\()/i.test(name)) return '体验用户';
+          return name;
+        }
+
+        function setRpsStage(userChoice, botChoice, centerText) {
+          document.getElementById('rpsUserArt').innerHTML = handSvg(userChoice);
+          document.getElementById('rpsUserLabel').textContent = rpsLabel[userChoice] || '等待出拳';
+          document.getElementById('rpsBotArt').innerHTML = handSvg(botChoice);
+          document.getElementById('rpsBotLabel').textContent = rpsLabel[botChoice] || '准备中';
+          document.getElementById('rpsCountdown').textContent = centerText || 'VS';
+          document.querySelector('.fighter.user').classList.toggle('reveal', !!userChoice);
+          document.querySelector('.fighter.bot').classList.toggle('reveal', !!botChoice);
+        }
+
+        function setRpsMotion(shaking, outcome) {
+          var user = document.querySelector('.fighter.user');
+          var bot = document.querySelector('.fighter.bot');
+          var center = document.getElementById('rpsCountdown');
+          user.classList.toggle('shaking', shaking);
+          bot.classList.toggle('shaking', shaking);
+          ['winner','loser'].forEach(function (name) {
+            user.classList.remove(name);
+            bot.classList.remove(name);
+          });
+          center.classList.remove('win','loss','draw');
+          if (!outcome) return;
+          center.classList.add(outcome);
+          if (outcome === 'win') { user.classList.add('winner'); bot.classList.add('loser'); }
+          if (outcome === 'loss') { user.classList.add('loser'); bot.classList.add('winner'); }
+        }
+
+        function showResultModal(emblem, title, detail) {
+          document.getElementById('resultEmblem').textContent = emblem;
+          document.getElementById('resultModalTitle').textContent = title;
+          document.getElementById('resultModalDetail').textContent = detail;
+          document.getElementById('resultModal').hidden = false;
+        }
+
+        function mineInitial(name) {
+          var visible = safeDisplayName(name);
+          return visible === '对手' ? '福' : visible.slice(0,1);
+        }
+
+        function formatClaimTime(value) {
+          var date = new Date(value);
+          if (!value || Number.isNaN(date.getTime())) return '刚刚领取';
+          return date.toLocaleString([], { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+        }
+
+        function showMineOpening(packet) {
+          state.pendingMine = { packet: packet, opening: false };
+          var modal = document.getElementById('mineOpenModal');
+          modal.classList.remove('opening','opened');
+          modal.hidden = false;
+          document.getElementById('mineOpenAvatar').textContent = mineInitial(packet.creator_name);
+          document.getElementById('mineOpenSender').textContent = safeDisplayName(packet.creator_name) + '的红包';
+          document.getElementById('mineOpenStatus').textContent = '点击開领取红包';
+          document.getElementById('mineOpenAction').disabled = false;
+          document.getElementById('mineOpenClose').disabled = false;
+        }
+
+        function hideMineOpening() {
+          if (state.pendingMine && state.pendingMine.opening) return;
+          document.getElementById('mineOpenModal').hidden = true;
+          state.pendingMine = null;
+        }
+
+        function renderMineDetail(packet) {
+          var sender = safeDisplayName(packet.creator_name);
+          document.getElementById('mineDetailAvatar').textContent = mineInitial(sender);
+          document.getElementById('mineDetailSender').textContent = sender + '的红包';
+          document.getElementById('mineDetailSummary').textContent = '7个红包共' + points2(packet.total) + '积分';
+          document.getElementById('mineDetailProgress').textContent = Number(packet.claimed_count || 0) + '/7 已领取';
+          document.getElementById('mineDetailDigit').textContent = '雷号' + packet.mine_digit;
+          var root = document.getElementById('mineDetailList');
+          root.innerHTML = '';
+          (packet.claims || []).forEach(function (claim) {
+            var row = document.createElement('div');
+            row.className = 'mine-detail-row';
+            row.innerHTML = '<span class="mine-detail-fortune">發</span><span class="mine-detail-user"><span class="mine-detail-name"></span><span class="mine-detail-time"></span></span><span class="mine-detail-value"></span>';
+            row.querySelector('.mine-detail-name').textContent = safeDisplayName(claim.username) + (claim.claimed_by_me ? '（我）' : '');
+            row.querySelector('.mine-detail-time').textContent = formatClaimTime(claim.claimed_at);
+            var value = row.querySelector('.mine-detail-value');
+            value.textContent = points2(claim.amount) + ' 积分';
+            if (claim.hit) {
+              var hit = document.createElement('small');
+              hit.className = 'mine-hit-label';
+              hit.textContent = '中雷';
+              value.appendChild(hit);
+            }
+            root.appendChild(row);
+          });
+          if (!(packet.claims || []).length) {
+            root.innerHTML = '<div class="mine-detail-empty">暂时还没有人领取</div>';
+          }
+          document.getElementById('mineDetailPage').hidden = false;
+          document.getElementById('mineDetailPage').scrollTop = 0;
+        }
+
+        function showMinePacketDetail(packet) {
+          renderMineDetail(packet);
+        }
+
+        function hideMineDetail() {
+          document.getElementById('mineDetailPage').hidden = true;
+        }
+
+        async function claimPendingMine() {
+          var pendingMine = state.pendingMine;
+          if (!pendingMine || pendingMine.opening) return;
+          pendingMine.opening = true;
+          var modal = document.getElementById('mineOpenModal');
+          var action = document.getElementById('mineOpenAction');
+          action.disabled = true;
+          document.getElementById('mineOpenClose').disabled = true;
+          document.getElementById('mineOpenStatus').textContent = '红包开启中…';
+          modal.classList.add('opening');
+          try {
+            var settled = await Promise.all([
+              bridgeCall('mine_grab', actionPayload({ packet_id: pendingMine.packet.id })),
+              delay(1050)
+            ]);
+            var result = settled[0];
+            setBalance(result.wallet_balance);
+            modal.classList.add('opened');
+            document.getElementById('mineOpenStatus').textContent = result.hit ? '已中雷，正在打开领取详情' : '领取成功，正在打开领取详情';
+            var packets = [];
+            try { packets = await refreshMines(); } catch (_) {}
+            var latest = packets.find(function (packet) { return packet.id === pendingMine.packet.id; });
+            if (!latest) {
+              latest = Object.assign({}, pendingMine.packet, {
+                claimed_count: Number(result.claimed_count || pendingMine.packet.claimed_count + 1),
+                claims: (pendingMine.packet.claims || []).concat([{
+                  username: '体验用户', amount: result.amount, hit: result.hit,
+                  claimed_by_me: true, claimed_at: new Date().toISOString()
+                }])
+              });
+            }
+            await delay(420);
+            modal.hidden = true;
+            state.pendingMine = null;
+            renderMineDetail(latest);
+          } catch (error) {
+            modal.classList.remove('opening','opened');
+            modal.hidden = true;
+            state.pendingMine = null;
+            toast(error.message);
+            try { await refreshMines(); } catch (_) {}
+          }
+        }
+
+        function setBalance(value) {
+          document.getElementById('balance').textContent = value == null ? '--' : value;
+        }
+
+        function setWallet(wallet) {
+          wallet = wallet || {};
+          setBalance(wallet.balance);
+          document.getElementById('redeemableBalance').textContent =
+            wallet.redeemable_balance == null ? '--' : wallet.redeemable_balance;
+        }
+
+        function updateConversionDirection() {
+          var reverse = document.getElementById('convertDirection').value === 'game_to_ai';
+          document.getElementById('convertBtn').textContent = reverse ? '兑回AI' : '转为积分';
+        }
+
+        function gameLabel(type) {
+          return type === 'rps' ? '石头剪刀布' : type === 'mine' ? '扫雷红包' :
+            type === 'match3' ? '宝石消消乐' : '八房生存局';
+        }
+
+        var gameSelectionCopy = {
+          battle: { mark: '8', title: '大逃杀 · 八房生存', subtitle: '开局前20秒可切换房间，最后5秒锁定并揭晓杀手目标', rule: '随机淘汰2至3个房间。换房只移动原投入，不重复扣分；幸存者按个人投入占全部幸存投入的比例分配扣除10%后的失败池。' },
+          rps: { mark: '拳', title: '石头剪刀布', subtitle: '玩家选择出拳，对手随机出拳', rule: '可选10、50或100积分；获胜到账投入的1.5倍，平局退回全部投入。' },
+          mine: { mark: '雷', title: '七人扫雷红包', subtitle: '选择红包档位和雷号，或参与现有红包', rule: '本人发布的红包也可拆；每个账号、每台设备对同一红包只能拆一次，领取金额与中雷状态会保留在详情中。' },
+          match3: { mark: '消', title: '宝石消消乐', subtitle: '完成关卡并开启里程碑宝箱', rule: '每关首次通关奖励1积分；复活必须完成真实激励广告并经服务端回调验证。' }
+        };
+
+        function showView(name) {
+          document.querySelectorAll('.tab').forEach(function (item) {
+            item.classList.toggle('active', item.dataset.view === name);
+          });
+          document.querySelectorAll('.view').forEach(function (view) {
+            view.hidden = view.id !== 'view-' + name;
+          });
+        }
+
+        function openGameSelection(gameType) {
+          var copy = gameSelectionCopy[gameType];
+          if (!copy) return;
+          state.activeGame = gameType;
+          showView('lobby');
+          document.querySelector('.wallet-strip').hidden = true;
+          document.getElementById('gameMenu').hidden = true;
+          document.getElementById('gameSelection').hidden = false;
+          document.querySelectorAll('.game').forEach(function (game) { game.hidden = true; });
+          document.getElementById('selectionMark').textContent = copy.mark;
+          document.getElementById('selectionTitle').textContent = copy.title;
+          document.getElementById('selectionSubtitle').textContent = copy.subtitle;
+          document.getElementById('selectionRule').textContent = copy.rule;
+          var showStake = gameType === 'rps';
+          document.getElementById('selectionOptions').hidden = !showStake;
+          document.getElementById('selectionStakeLabel').textContent = '本局投入积分';
+          document.querySelectorAll('#selectionStakes .stake-option').forEach(function (item) {
+            item.classList.toggle('active', Number(item.dataset.stake) === Number(state.selectedStake[gameType] || 10));
+          });
+        }
+
+        function enterSelectedGame() {
+          if (!state.activeGame) return;
+          if (state.activeGame === 'rps') {
+            document.getElementById('rpsStakeRule').textContent = state.selectedStake.rps + '积分 · 1.5倍';
+          }
+          document.getElementById('gameSelection').hidden = true;
+          document.querySelectorAll('.game').forEach(function (game) {
+            game.hidden = game.id !== 'game-' + state.activeGame;
+          });
+          if (state.activeGame === 'mine') refreshMines().catch(function (error) { toast(error.message); });
+          if (state.activeGame === 'battle') refreshBattle().catch(function (error) { toast(error.message); });
+          if (state.activeGame === 'match3') refreshMatch3().catch(function (error) { toast(error.message); });
+          window.scrollTo(0, 0);
+        }
+
+        function resultLabel(result) {
+          return result === 'win' ? '获胜' : result === 'loss' ? '失败' :
+            result === 'draw' ? '平局' : result === 'refund' ? '退款' :
+            result === 'settled' ? '已结算' : '领取';
+        }
+
+        function historyDetail(record) {
+          var detail = record.detail || {};
+          if (record.game_type === 'rps') {
+            return '你出' + (rpsLabel[detail.user_choice] || '-') +
+              ' · 对手出' + (rpsLabel[detail.bot_choice] || '-') +
+              ' · 投入' + record.stake + ' · 到账' + record.payout;
+          }
+          if (record.game_type === 'match3') {
+            return '第' + detail.level_no + '关 · 得分' + detail.score + ' · 首次通关奖励1积分';
+          }
+          if (record.game_type === 'battle') {
+            var eliminated = detail.eliminated_rooms || [];
+            var survived = detail.surviving_rooms || [];
+            var mine = detail.participated ?
+              ' · 你在' + detail.room_no + '号房' : ' · 本轮未参与';
+            return '第' + (detail.issue_no || '-') + '期 · 淘汰：' + eliminated.join('、') + '号房 · 存活：' +
+              survived.join('、') + '号房' + mine;
+          }
+          if (detail.role === 'creator') {
+            var claims = (detail.claims || []).map(function (claim) {
+              return safeDisplayName(claim.username) + ' ' + claim.amount + (claim.hit ? '（中雷）' : '');
+            });
+            return '金额' + record.stake + ' · 雷号' + detail.mine_digit + ' · ' + detail.claimed_count +
+              '/7已领取' + (claims.length ? ' · ' + claims.join('、') : '');
+          }
+          return '领取' + (detail.amount || record.payout) + ' · 雷号' +
+            (detail.mine_digit == null ? '-' : detail.mine_digit) +
+            (detail.hit ? ' · 中雷赔付15' : ' · 未中雷');
+        }
+
+        async function loadDashboard() {
+          var data = await bridgeCall('dashboard');
+          state.dashboard = data;
+          state.battle = data.battle;
+          state.match3 = data.match3;
+          state.lastBattleResultId = data.battle && data.battle.previous ? data.battle.previous.id : null;
+          setWallet(data.wallet);
+          renderMines(data.mines || []);
+          renderBattle(data.battle);
+          renderMatch3(data.match3);
+          renderHistory(data.history || []);
+          renderRank(data.leaderboard || []);
+        }
+
+        function renderMines(packets) {
+          var root = document.getElementById('mineList');
+          root.innerHTML = '';
+          if (!packets.length) {
+            root.innerHTML = '<div class="empty">当前没有可领取的红包</div>';
+            return;
+          }
+          packets.forEach(function (packet) {
+            var item = document.createElement('div');
+            item.className = 'mine-item';
+            item.innerHTML = '<div class="envelope"><span></span></div><div><div class="mine-name"></div><div class="mine-meta"></div><div class="mine-claims"></div><div class="mine-progress"><span></span></div></div><button class="btn"></button>';
+            item.querySelector('.envelope span').textContent = packet.mine_digit;
+            item.querySelector('.mine-name').textContent = safeDisplayName(packet.creator_name) +
+              ' · 金额' + packet.total + ' 雷号' + packet.mine_digit;
+            item.querySelector('.mine-meta').textContent =
+              new Date(packet.created_at).toLocaleString() + ' 发布 · ' +
+              packet.claimed_count + '/7 已领取';
+            item.querySelector('.mine-progress span').style.width = Math.min(100, packet.claimed_count / 7 * 100) + '%';
+            var claimRoot = item.querySelector('.mine-claims');
+            (packet.claims || []).forEach(function (claim) {
+              var badge = document.createElement('span');
+              badge.className = 'mine-claim' + (claim.hit ? ' hit' : '');
+              badge.textContent = safeDisplayName(claim.username) + ' ' + points2(claim.amount) +
+                (claim.hit ? ' · 中雷' : '');
+              claimRoot.appendChild(badge);
+            });
+            var button = item.querySelector('button');
+            var myClaim = (packet.claims || []).find(function (claim) {
+              return claim.claimed_by_me;
+            });
+            var canGrab = packet.status === 'open' && !packet.already_claimed && !myClaim;
+            button.textContent = canGrab ? '拆红包' : '查看详情';
+            button.addEventListener('click', function () {
+              if (!canGrab) {
+                showMinePacketDetail(packet);
+                return;
+              }
+              showMineOpening(packet);
+            });
+            root.appendChild(item);
+          });
+        }
+
+        async function refreshMines() {
+          var data = await bridgeCall('mine_list');
+          var packets = data.packets || [];
+          renderMines(packets);
+          return packets;
+        }
+
+        function secondsUntil(value) {
+          return Math.max(0, Math.ceil((new Date(value).getTime() - Date.now()) / 1000));
+        }
+
+        function renderBattle(battle) {
+          if (!battle) return;
+          if (state.selectedBattleRoundId !== battle.id) {
+            state.selectedBattleRoundId = battle.id;
+            state.selectedBattleRoom = null;
+          }
+          state.battle = battle;
+          document.getElementById('battleIssue').textContent = '第' + battle.issue_no + '期';
+          renderBattleRecent(battle.recent_rounds || []);
+          var newest = (battle.recent_rounds || [])[0];
+          if (newest && state.lastBattleResultId && newest.id !== state.lastBattleResultId && state.activeGame === 'battle') {
+            var participated = !!newest.user_room_no;
+            var won = newest.user_result === 'win';
+            var title = participated ? (won ? '成功存活' : '房间被淘汰') : '本轮已揭晓';
+            var detail = '第' + newest.issue_no + '期淘汰' + newest.eliminated_rooms.length +
+              '个房间：' + newest.eliminated_rooms.join('、') + '号房';
+            if (participated) detail += '；你在' + newest.user_room_no + '号房，净盈亏' + newest.user_net_profit + '积分';
+            showResultModal(won ? '胜' : participated ? '败' : '8', title, detail);
+          }
+          if (newest) state.lastBattleResultId = newest.id;
+          updateBattleCountdown();
+          document.getElementById('realmGhost').classList.toggle('active', battle.frozen === true);
+          var joinedRoom = (battle.rooms || []).find(function (item) { return item.joined; });
+          var canSwitch = !battle.frozen && battle.switch_until && secondsUntil(battle.switch_until) > 0;
+          if (joinedRoom) state.selectedBattleRoom = Number(joinedRoom.room_no);
+          var selectedRoomNo = Number(state.selectedBattleRoom || 0);
+          document.getElementById('battleSelectionStatus').textContent = selectedRoomNo ?
+            '已选择 ' + selectedRoomNo + '号房' : '请先选择房间';
+          document.getElementById('battleCurrentStake').textContent = joinedRoom ?
+            '本回合累计投入 ' + joinedRoom.user_stake + ' 积分' :
+            '每次可追加1、10或50积分，多次投入自动累加';
+          document.querySelectorAll('[data-battle-stake]').forEach(function (betButton) {
+            betButton.disabled = battle.frozen || !selectedRoomNo;
+          });
+          var rooms = document.getElementById('battleRooms');
+          rooms.innerHTML = '';
+          (battle.rooms || []).forEach(function (room) {
+            var button = document.createElement('button');
+            var ghostLocked = (battle.eliminated_rooms || []).map(Number).includes(Number(room.room_no));
+            var pendingRoom = !joinedRoom && selectedRoomNo === Number(room.room_no);
+            button.className = 'room' + (room.joined || pendingRoom ? ' selected' : '') + (ghostLocked ? ' ghost' : '');
+            button.innerHTML = '<span class="killer-footprints" aria-hidden="true"><i></i><i></i></span><div class="room-visual"></div><div><div class="room-no"></div><div class="room-data"></div><div class="room-status"></div></div>';
+            button.querySelector('.room-no').textContent = room.room_no + '号房';
+            button.querySelector('.room-data').textContent = room.players + '人 · ' + room.total_stake + '积分';
+            button.querySelector('.room-status').textContent = ghostLocked ? '杀手进入' :
+              room.joined ? (canSwitch ? '已下注 · 可换房' : '已下注') :
+              pendingRoom ? '待下注' : room.opponents + '位对手';
+            button.disabled = battle.frozen || (!!joinedRoom && !canSwitch) || room.joined;
+            button.addEventListener('click', async function () {
+              if (!joinedRoom) {
+                state.selectedBattleRoom = Number(room.room_no);
+                renderBattle(battle);
+                toast('已选择' + room.room_no + '号房，请选择追加积分');
+                return;
+              }
+              setLoading(button, true);
+              try {
+                var result = await bridgeCall('battle_join', actionPayload({
+                  round_id: battle.id, room_no: room.room_no, stake: 0
+                }));
+                setBalance(result.wallet_balance);
+                state.selectedBattleRoom = Number(room.room_no);
+                toast('已切换到 ' + room.room_no + '号房，累计投入保持' + result.stake + '积分');
+                await refreshBattle();
+              } catch (error) { toast(error.message); }
+              finally { setLoading(button, false); }
+            });
+            rooms.appendChild(button);
+          });
+          var previous = document.getElementById('battlePrevious');
+          if (battle.previous) {
+            previous.hidden = false;
+            previous.innerHTML = '<div class="result-title">第' + battle.previous.issue_no +
+              '期 · 上一轮淘汰' + battle.previous.eliminated_rooms.length + '个房间</div>' +
+              '<div class="result-detail">淘汰房间：' + battle.previous.eliminated_rooms.join('号、') + '号房</div>' +
+              '<div class="result-detail">随机种子已公开，可用承诺值核验结果。</div>';
+          } else previous.hidden = true;
+        }
+
+        function renderBattleRecent(rounds) {
+          var root = document.getElementById('battleRecent');
+          root.innerHTML = '';
+          if (!rounds.length) {
+            root.innerHTML = '<div class="battle-round-pill">最近暂无已结算轮次</div>';
+            return;
+          }
+          rounds.slice(0, 10).forEach(function (round) {
+            var item = document.createElement('div');
+            item.className = 'battle-round-pill';
+            item.innerHTML = '<strong></strong><span></span>';
+            item.querySelector('strong').textContent = '第' + round.issue_no + '期 · 淘汰' + round.eliminated_rooms.length + '房';
+            item.querySelector('span').textContent = '淘汰 ' + round.eliminated_rooms.join('、') + ' · 存活 ' + round.surviving_rooms.join('、');
+            root.appendChild(item);
+          });
+        }
+
+        function updateBattleCountdown() {
+          if (!state.battle || !state.battle.closes_at) return;
+          var seconds = secondsUntil(state.battle.closes_at);
+          var frozen = state.battle.frozen || seconds <= 5;
+          var canSwitch = !frozen && state.battle.switch_until && secondsUntil(state.battle.switch_until) > 0;
+          document.getElementById('realmGhost').classList.toggle('active', frozen);
+          document.querySelector('.battle-countdown').classList.toggle('frozen', frozen);
+          document.getElementById('battleCountdown').textContent = frozen ? seconds + '秒揭晓' : canSwitch ? '前20秒可切换' : seconds + '秒后揭晓';
+          document.getElementById('battleCountdownLarge').textContent = frozen ? '锁定 ' + seconds + '秒' : seconds + '秒';
+          document.getElementById('battleProgress').style.width = Math.min(100, seconds / 60 * 100) + '%';
+          if (frozen) {
+            document.querySelectorAll('#battleRooms .room').forEach(function (room) {
+              room.disabled = true;
+            });
+            document.querySelectorAll('[data-battle-stake]').forEach(function (button) {
+              button.disabled = true;
+            });
+          }
+        }
+
+        async function refreshBattle() {
+          var data = await bridgeCall('battle_state');
+          renderBattle(data);
+        }
+
+        function renderMatch3(data) {
+          data = data || {};
+          state.match3 = data;
+          state.match3Selected = null;
+          var session = data.session;
+          document.getElementById('match3Level').textContent = session ? session.level_no : data.next_level || 1;
+          document.getElementById('match3Score').textContent = session ? session.score + '/' + session.target_score : '--';
+          document.getElementById('match3Moves').textContent = session ? session.moves_left : '--';
+          var start = document.getElementById('match3Start');
+          start.hidden = !!session && session.status === 'active';
+          start.textContent = session && session.status === 'failed' ? '重新开始本关' : '开始当前关';
+          document.getElementById('match3Recover').hidden = !session || session.status !== 'failed';
+          var chest = document.getElementById('match3Chest');
+          chest.hidden = !data.chest_available;
+          chest.textContent = data.chest_available ? '开启第' + data.chest_available + '关宝箱' : '开启宝箱';
+          var root = document.getElementById('match3Board');
+          root.innerHTML = '';
+          var cells = session && Array.isArray(session.board) ? session.board : Array(64).fill(-1);
+          cells.forEach(function (symbol, index) {
+            var tile = document.createElement('button');
+            tile.className = 'match3-tile' + (symbol >= 0 ? ' gem-' + symbol : '');
+            tile.disabled = !session || session.status !== 'active';
+            tile.dataset.x = index % 8;
+            tile.dataset.y = Math.floor(index / 8);
+            tile.addEventListener('click', function () { selectMatch3Tile(tile); });
+            root.appendChild(tile);
+          });
+        }
+
+        function selectMatch3Tile(tile) {
+          var current = { x: Number(tile.dataset.x), y: Number(tile.dataset.y), node: tile };
+          if (!state.match3Selected) {
+            state.match3Selected = current;
+            tile.classList.add('selected');
+            return;
+          }
+          var previous = state.match3Selected;
+          if (previous.x === current.x && previous.y === current.y) {
+            tile.classList.remove('selected');
+            state.match3Selected = null;
+            return;
+          }
+          if (Math.abs(previous.x - current.x) + Math.abs(previous.y - current.y) !== 1) {
+            previous.node.classList.remove('selected');
+            state.match3Selected = current;
+            tile.classList.add('selected');
+            return;
+          }
+          previous.node.classList.remove('selected');
+          state.match3Selected = null;
+          playMatch3Move(previous, current);
+        }
+
+        async function playMatch3Move(from, to) {
+          var session = state.match3 && state.match3.session;
+          if (!session) return;
+          var board = document.getElementById('match3Board');
+          board.classList.add('loading');
+          try {
+            var result = await bridgeCall('match3_move', actionPayload({
+              session_id: session.id,
+              from_x: from.x,
+              from_y: from.y,
+              to_x: to.x,
+              to_y: to.y
+            }));
+            state.match3.session = result.session;
+            renderMatch3(state.match3);
+            if (!result.valid) {
+              toast('这次交换没有形成三连');
+            } else if (result.completed) {
+              if (result.wallet_balance != null) setBalance(result.wallet_balance);
+              showResultModal('奖', '第' + result.session.level_no + '关通关', '首次通关奖励' + points2(result.reward) + '积分');
+              await refreshMatch3();
+            } else if (result.failed) {
+              showResultModal('败', '步数用完了', '完整观看激励广告可增加5步继续本关');
+            }
+          } catch (error) { toast(error.message); }
+          finally { board.classList.remove('loading'); }
+        }
+
+        async function refreshMatch3() {
+          renderMatch3(await bridgeCall('match3_state'));
+        }
+
+        function renderHistory(records) {
+          var root = document.getElementById('historyList');
+          root.innerHTML = '';
+          if (!records.length) { root.innerHTML = '<div class="empty">还没有完成的对局</div>'; return; }
+          records.forEach(function (record) {
+            var row = document.createElement('div');
+            row.className = 'history-card';
+            var positive = Number(record.net_profit) > 0;
+            var hitText = record.game_type === 'mine' && record.detail && record.detail.role !== 'creator' ?
+              (record.detail.hit ? '中雷 · ' : '未中雷 · ') : '';
+            row.innerHTML = '<div class="history-card-head"><div class="history-icon"></div><div class="history-title"></div><div class="history-result"></div></div><div class="row-detail"></div><div class="row-meta"></div><div class="history-metrics"><div class="history-metric"><span>投入</span><strong></strong></div><div class="history-metric"><span>到账</span><strong></strong></div><div class="history-metric"><span>手续费</span><strong></strong></div><div class="history-metric"><span>净盈亏</span><strong></strong></div></div>';
+            row.querySelector('.history-icon').textContent = record.game_type === 'rps' ? '拳' :
+              record.game_type === 'mine' ? '雷' : record.game_type === 'match3' ? '消' : '8';
+            row.querySelector('.history-title').textContent = gameLabel(record.game_type);
+            row.querySelector('.history-result').textContent = hitText + resultLabel(record.result);
+            row.querySelector('.row-detail').textContent = historyDetail(record);
+            row.querySelector('.row-meta').textContent = new Date(record.created_at).toLocaleString();
+            var metrics = row.querySelectorAll('.history-metric strong');
+            metrics[0].textContent = record.stake;
+            metrics[1].textContent = record.payout;
+            metrics[2].textContent = record.fee;
+            metrics[3].textContent = (positive ? '+' : '') + record.net_profit;
+            metrics[3].className = positive ? 'win' : Number(record.net_profit) < 0 ? 'loss' : 'draw';
+            root.appendChild(row);
+          });
+        }
+
+        async function loadHistory(gameType) {
+          var data = await bridgeCall('history', { game_type: gameType || '' });
+          renderHistory(data.records || []);
+        }
+
+        function renderRank(records) {
+          var root = document.getElementById('rankList');
+          root.innerHTML = '';
+          if (!records.length) { root.innerHTML = '<div class="empty">今日还没有已结算对局</div>'; return; }
+          records.forEach(function (record) {
+            var row = document.createElement('div');
+            row.className = 'row rank-row';
+            row.innerHTML = '<div class="rank"></div><div><div class="row-title"></div><div class="row-meta"></div></div><div class="money"></div>';
+            row.querySelector('.rank').textContent = record.rank;
+            row.querySelector('.row-title').textContent = record.username;
+            row.querySelector('.row-meta').textContent = record.games + '局 · ' + record.wins + '胜';
+            var money = row.querySelector('.money');
+            money.textContent = (Number(record.net_profit) > 0 ? '+' : '') + record.net_profit;
+            money.className = 'money ' + (Number(record.net_profit) > 0 ? 'win' : Number(record.net_profit) < 0 ? 'loss' : 'draw');
+            root.appendChild(row);
+          });
+        }
+
+        document.querySelectorAll('.tab').forEach(function (button) {
+          button.addEventListener('click', async function () {
+            showView(button.dataset.view);
+            if (button.dataset.view === 'lobby') {
+              state.activeGame = null;
+              document.querySelector('.wallet-strip').hidden = false;
+              document.getElementById('gameMenu').hidden = false;
+              document.getElementById('gameSelection').hidden = true;
+              document.querySelectorAll('.game').forEach(function (game) { game.hidden = true; });
+            }
+            if (button.dataset.view === 'history') {
+              var selected = document.querySelector('#historyFilter button.active');
+              try { await loadHistory(selected ? selected.dataset.historyType : ''); } catch (error) { toast(error.message); }
+            }
+            if (button.dataset.view === 'profile') {
+              try { renderRank((await bridgeCall('leaderboard')).records || []); } catch (error) { toast(error.message); }
+            }
+          });
+        });
+
+        document.querySelectorAll('#historyFilter button').forEach(function (button) {
+          button.addEventListener('click', async function () {
+            document.querySelectorAll('#historyFilter button').forEach(function (item) {
+              item.classList.toggle('active', item === button);
+            });
+            try { await loadHistory(button.dataset.historyType || ''); }
+            catch (error) { toast(error.message); }
+          });
+        });
+
+        document.querySelectorAll('.game-card').forEach(function (button) {
+          button.addEventListener('click', function () {
+            openGameSelection(button.dataset.game);
+          });
+        });
+
+        document.querySelectorAll('[data-home-game]').forEach(function (button) {
+          button.addEventListener('click', function () {
+            openGameSelection(button.dataset.homeGame);
+          });
+        });
+
+        document.querySelectorAll('#selectionStakes .stake-option').forEach(function (button) {
+          button.addEventListener('click', function () {
+            if (!state.activeGame) return;
+            state.selectedStake[state.activeGame] = Number(button.dataset.stake);
+            document.querySelectorAll('#selectionStakes .stake-option').forEach(function (item) {
+              item.classList.toggle('active', item === button);
+            });
+          });
+        });
+
+        document.querySelectorAll('[data-battle-stake]').forEach(function (button) {
+          button.addEventListener('click', async function () {
+            var battle = state.battle;
+            var roomNo = Number(state.selectedBattleRoom || 0);
+            if (!battle || !roomNo) {
+              toast('请先选择房间');
+              return;
+            }
+            var stake = Number(button.dataset.battleStake);
+            document.querySelectorAll('[data-battle-stake]').forEach(function (item) {
+              item.disabled = true;
+            });
+            try {
+              var result = await bridgeCall('battle_join', actionPayload({
+                round_id: battle.id,
+                room_no: roomNo,
+                stake: stake
+              }));
+              setBalance(result.wallet_balance);
+              toast('本次追加' + result.added_stake + '积分，累计投入' + result.stake + '积分');
+              await refreshBattle();
+            } catch (error) {
+              toast(error.message);
+              await refreshBattle().catch(function () {});
+            } finally {
+              var disabled = !state.battle || state.battle.frozen ||
+                secondsUntil(state.battle.closes_at) <= 5 || !state.selectedBattleRoom;
+              document.querySelectorAll('[data-battle-stake]').forEach(function (item) {
+                item.disabled = disabled;
+              });
+            }
+          });
+        });
+
+        document.getElementById('selectionEnter').addEventListener('click', enterSelectedGame);
+        document.getElementById('selectionBack').addEventListener('click', function () {
+          state.activeGame = null;
+          document.querySelector('.wallet-strip').hidden = false;
+          document.getElementById('gameSelection').hidden = true;
+          document.getElementById('gameMenu').hidden = false;
+        });
+
+        document.querySelectorAll('.back').forEach(function (button) {
+          button.addEventListener('click', function () {
+            document.querySelectorAll('.game').forEach(function (game) { game.hidden = true; });
+            document.getElementById('gameSelection').hidden = false;
+          });
+        });
+
+        document.getElementById('convertBtn').addEventListener('click', async function () {
+          var button = this;
+          setLoading(button, true);
+          try {
+            var amount = Number(document.getElementById('convertAmount').value);
+            var direction = document.getElementById('convertDirection').value;
+            var result = await bridgeCall('convert', actionPayload({
+              amount: amount,
+              direction: direction
+            }));
+            setWallet(result.wallet);
+            toast(direction === 'game_to_ai' ?
+              '已兑回 ' + result.converted_points + ' AI额度' :
+              '已兑换 ' + result.converted_points + ' 游戏积分');
+          } catch (error) { toast(error.message); }
+          finally { setLoading(button, false); }
+        });
+
+        document.getElementById('convertDirection').addEventListener(
+          'change',
+          updateConversionDirection
+        );
+        updateConversionDirection();
+
+        document.querySelectorAll('.rps-choice').forEach(function (button) {
+          button.addEventListener('click', async function () {
+            document.querySelectorAll('.rps-choice').forEach(function (item) { item.disabled = true; });
+            var userChoice = button.dataset.choice;
+            var stake = Number(state.selectedStake.rps || 10);
+            setRpsStage(userChoice, 'rock', '1');
+            setRpsMotion(true, null);
+            var root = document.getElementById('rpsResult');
+            root.innerHTML = '<div class="result-title">已经投入' + stake + '积分</div><div class="result-detail">对手正在准备出拳，结果即将揭晓。</div>';
+            try {
+              var settled = await Promise.all([
+                bridgeCall('rps_play', actionPayload({ choice: userChoice, stake: stake })),
+                (async function () {
+                  await delay(1000);
+                  setRpsMotion(false, null);
+                })()
+              ]);
+              var result = settled[0];
+              setBalance(result.wallet_balance);
+              setRpsStage(
+                result.detail.user_choice,
+                result.detail.bot_choice,
+                result.result === 'win' ? '胜' : result.result === 'draw' ? '平' : '负'
+              );
+              setRpsMotion(false, result.result);
+              root.innerHTML = '<div class="result-title"></div><div class="result-detail"></div>';
+              var title = root.querySelector('.result-title');
+              title.textContent = resultLabel(result.result) + ' · 净盈亏 ' + result.net_profit;
+              title.className = 'result-title ' + result.result;
+              root.querySelector('.result-detail').textContent =
+                '你出 ' + ({rock:'石头',paper:'布',scissors:'剪刀'}[result.detail.user_choice]) +
+                '，对手出 ' + ({rock:'石头',paper:'布',scissors:'剪刀'}[result.detail.bot_choice]) +
+                '，到账 ' + result.payout + ' 积分。';
+              var modalTitle = result.result === 'win' ? '你赢了' : result.result === 'draw' ? '本局平局' : '对手获胜';
+              showResultModal(
+                result.result === 'win' ? '胜' : result.result === 'draw' ? '平' : '败',
+                modalTitle,
+                '你出' + rpsLabel[result.detail.user_choice] + '，对手出' + rpsLabel[result.detail.bot_choice] +
+                  '；净盈亏' + result.net_profit + '积分'
+              );
+            } catch (error) { toast(error.message); }
+            finally { document.querySelectorAll('.rps-choice').forEach(function (item) { item.disabled = false; }); }
+          });
+        });
+
+        document.getElementById('openMineCreateBtn').addEventListener('click', function () {
+          document.getElementById('mineCreateModal').hidden = false;
+          document.querySelectorAll('#mineCreateStakes .stake-option').forEach(function (item) {
+            item.classList.toggle('active', Number(item.dataset.mineTotal) === Number(state.mineCreateTotal));
+          });
+        });
+
+        document.getElementById('mineCreateCancel').addEventListener('click', function () {
+          document.getElementById('mineCreateModal').hidden = true;
+        });
+
+        document.querySelectorAll('#mineCreateStakes .stake-option').forEach(function (button) {
+          button.addEventListener('click', function () {
+            state.mineCreateTotal = Number(button.dataset.mineTotal);
+            document.querySelectorAll('#mineCreateStakes .stake-option').forEach(function (item) {
+              item.classList.toggle('active', item === button);
+            });
+          });
+        });
+
+        document.getElementById('createMineBtn').addEventListener('click', async function () {
+          var button = this;
+          setLoading(button, true);
+          try {
+            var digit = Number(document.getElementById('mineDigit').value);
+            var total = Number(state.mineCreateTotal || 10);
+            var result = await bridgeCall('mine_create', actionPayload({ mine_digit: digit, total: total }));
+            setBalance(result.wallet_balance);
+            document.getElementById('mineCreateModal').hidden = true;
+            toast(total + '积分红包已创建，雷号 ' + digit);
+            await refreshMines();
+          } catch (error) { toast(error.message); }
+          finally { setLoading(button, false); }
+        });
+
+        document.getElementById('mineOpenAction').addEventListener('click', claimPendingMine);
+        document.getElementById('mineOpenClose').addEventListener('click', hideMineOpening);
+        document.getElementById('mineDetailBack').addEventListener('click', hideMineDetail);
+        document.getElementById('resultModalClose').addEventListener('click', function () {
+          document.getElementById('resultModal').hidden = true;
+        });
+
+        document.getElementById('match3Start').addEventListener('click', async function () {
+          setLoading(this, true);
+          try {
+            var nextLevel = state.match3 && state.match3.next_level;
+            var data = await bridgeCall('match3_start', { level_no: nextLevel });
+            state.match3.session = data.session;
+            renderMatch3(state.match3);
+          } catch (error) { toast(error.message); }
+          finally { setLoading(this, false); }
+        });
+
+        document.getElementById('match3Recover').addEventListener('click', async function () {
+          var session = state.match3 && state.match3.session;
+          if (!session) return;
+          setLoading(this, true);
+          try {
+            var data = await bridgeCall('match3_recover_ad', actionPayload({ session_id: session.id }));
+            renderMatch3(data.match3);
+            showResultModal('活', '复活成功', '已增加5步，可以继续本关');
+          } catch (error) { toast(error.message); }
+          finally { setLoading(this, false); }
+        });
+
+        document.getElementById('match3Chest').addEventListener('click', async function () {
+          var level = state.match3 && state.match3.chest_available;
+          if (!level) return;
+          setLoading(this, true);
+          try {
+            var result = await bridgeCall('match3_chest_open', { level_no: level });
+            if (result.wallet_balance != null) setBalance(result.wallet_balance);
+            var labels = { again: '再接再厉', points_1: '获得1积分', points_5: '获得5积分', points_10: '获得10积分' };
+            showResultModal(result.reward === '0' ? '再' : '奖', '宝箱结果', labels[result.result] || '再接再厉');
+            await refreshMatch3();
+          } catch (error) { toast(error.message); }
+          finally { setLoading(this, false); }
+        });
+
+        setRpsStage('rock', null, 'VS');
+
+        setInterval(function () {
+          if (state.activeGame === 'battle') refreshBattle().catch(function () {});
+        }, 2000);
+        setInterval(function () {
+          updateBattleCountdown();
+        }, 500);
+
+        loadDashboard().catch(function (error) {
+          toast(error.message);
+          document.getElementById('balance').textContent = '不可用';
+        });
+      })();
+    </script>
+  </body>
+</html>
