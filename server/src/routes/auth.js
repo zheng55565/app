@@ -1,11 +1,98 @@
 // 用户注册 / 登录
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
 import { query, withTransaction } from '../db.js';
 import { config } from '../config.js';
 import { signToken, requireAuth } from '../middleware/auth.js';
 
 const router = Router();
+
+export function previewLoginEnabled(currentConfig = config) {
+  const preview = currentConfig.auth?.preview;
+  return Boolean(
+    currentConfig.env !== 'production' &&
+      currentConfig.station?.mode === 'mock' &&
+      preview?.enabled &&
+      preview.username &&
+      preview.password
+  );
+}
+
+function secretMatches(actual, expected) {
+  const actualHash = crypto.createHash('sha256').update(String(actual)).digest();
+  const expectedHash = crypto.createHash('sha256').update(String(expected)).digest();
+  return crypto.timingSafeEqual(actualHash, expectedHash);
+}
+
+export function previewCredentialsMatch(username, password, currentConfig = config) {
+  if (!previewLoginEnabled(currentConfig)) return false;
+  return (
+    secretMatches(username, currentConfig.auth.preview.username) &&
+    secretMatches(password, currentConfig.auth.preview.password)
+  );
+}
+
+// 真实广告联调账号。只在 development + mock 中转账本下存在，正式环境返回404。
+router.post('/preview', async (req, res, next) => {
+  try {
+    if (!previewLoginEnabled()) {
+      return res.status(404).json({ code: 404, message: '接口不存在' });
+    }
+    const { username, password } = req.body || {};
+    if (!previewCredentialsMatch(username || '', password || '')) {
+      return res.status(401).json({ code: 401, message: '检查账号或口令错误' });
+    }
+
+    const previewIdentity = `preview:${config.auth.preview.username}`;
+    const user = await withTransaction(async (client) => {
+      const { rows: stationRows } = await client.query(
+        `INSERT INTO mock_station_accounts (linuxdo_user_id, username)
+         VALUES ($1, $2)
+         ON CONFLICT (linuxdo_user_id) DO UPDATE SET
+           username = EXCLUDED.username,
+           status = 'active',
+           updated_at = NOW()
+         RETURNING id`,
+        [previewIdentity, config.auth.preview.username]
+      );
+      const stationUserId = stationRows[0].id;
+      const { rows: userRows } = await client.query(
+        `INSERT INTO users
+           (username, linuxdo_user_id, linuxdo_username, station_user_id, last_login_at)
+         VALUES ($1, $2, $1, $3, NOW())
+         ON CONFLICT (username) DO UPDATE SET
+           linuxdo_user_id = EXCLUDED.linuxdo_user_id,
+           linuxdo_username = EXCLUDED.linuxdo_username,
+           station_user_id = EXCLUDED.station_user_id,
+           status = 'active',
+           last_login_at = NOW(),
+           updated_at = NOW()
+         RETURNING id, username, linuxdo_username, station_user_id`,
+        [config.auth.preview.username, previewIdentity, stationUserId]
+      );
+      await client.query(
+        `INSERT INTO wallets (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
+        [userRows[0].id]
+      );
+      return userRows[0];
+    });
+
+    res.json({
+      code: 0,
+      token: signToken(user),
+      user: {
+        id: Number(user.id),
+        username: user.username,
+        linuxdo_username: user.linuxdo_username,
+        station_user_id: Number(user.station_user_id),
+        station_status: 'active',
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
 
 router.post('/register', async (req, res, next) => {
   try {

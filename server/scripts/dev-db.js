@@ -1,7 +1,7 @@
 // 本地测试用：启动内嵌 PostgreSQL 并初始化 schema
 // 用法: node scripts/dev-db.js   （保持运行，Ctrl+C 停止）
 import EmbeddedPostgres from 'embedded-postgres';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -36,9 +36,16 @@ async function main() {
   await db.connect();
   const schema = readFileSync(path.join(__dirname, '..', 'sql', 'schema.sql'), 'utf8');
   await db.query(schema);
-  // v2 迁移（幂等，可重复执行）
-  const migrateV2 = readFileSync(path.join(__dirname, '..', 'sql', 'migrate_v2.sql'), 'utf8');
-  await db.query(migrateV2);
+  // 全部迁移均要求幂等；按数字版本执行，避免新增迁移后本地环境漏跑。
+  const sqlDir = path.join(__dirname, '..', 'sql');
+  const migrations = readdirSync(sqlDir)
+    .map((name) => ({ name, version: Number(/^migrate_v(\d+)\.sql$/.exec(name)?.[1]) }))
+    .filter((item) => Number.isInteger(item.version))
+    .sort((left, right) => left.version - right.version);
+  for (const migration of migrations) {
+    await db.query(readFileSync(path.join(sqlDir, migration.name), 'utf8'));
+    console.log(`[dev-db] 已执行 ${migration.name}`);
+  }
   await db.end();
 
   console.log(`[dev-db] PostgreSQL 已就绪: postgres://postgres:postgres@localhost:5433/${dbName}`);

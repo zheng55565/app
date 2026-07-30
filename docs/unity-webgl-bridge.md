@@ -85,7 +85,7 @@ Flutter → Unity（`window.onGongyiMessage(json)` → SendMessage 到注册的 
 ## 联调方式
 
 1. `D:\new-api-app\start-dev.bat`（见 STARTUP.md）拉起全套环境；
-2. App 首页 → 点“小游戏”卡片 → WebView 加载 `http://10.0.2.2:3000/games/`；
+2. App 首页 → 点“小游戏”卡片 → WebView 加载 `http://10.0.2.2:3001/games/`；
 3. 构建产物部署前，现有测试页可先验证桥接：点“看视频复活”按钮 →
    App 弹出 mock 激励视频 → 看完/关闭 → 测试页日志显示 earned/dismissed；
 4. 验证隔离：整个流程中后端日志不得出现 `/api/ad-task/start`（可

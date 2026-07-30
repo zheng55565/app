@@ -20,6 +20,7 @@
 *.sqlite3
 .pgdata/
 **/.pgdata/
+server/var/
 
 # Dependencies and generated output
 node_modules/
@@ -34,6 +35,10 @@ dist/
 **/dist/
 coverage/
 **/coverage/
+outputs/
+*.tsbuildinfo
+admin/vite.config.js
+admin/vite.config.d.ts
 
 # Flutter and Android generated files
 .flutter-plugins

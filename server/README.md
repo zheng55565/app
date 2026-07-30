@@ -57,7 +57,8 @@ npm run dev
 
 1. `POST /api/ad-task/start` → 校验已绑定 + 今日次数 < 6 → 返回 `task_token`
 2. App 播放激励视频（把 task_token 作为透传参数传给广告 SDK）
-3. 广告平台服务端回调 `POST /api/ad-callback/reward`（HMAC 签名占位实现，接入实际平台时替换 `verifySign`）
+3. SDK 返回 `transId` 后，App 调用 `POST /api/ad-task/client-complete` 登记客户端凭据；该接口不发奖
+4. HJ 服务端回调 `GET /api/ad-callback/hj/reward`，服务端验证平台签名、交易号幂等与风控后发奖
 4. 后端事务内：行锁任务 → 幂等检查 → 次数原子递增 → 加余额 → 写流水
 5. App 轮询 `GET /api/ad-task/status/:task_token` 展示到账
 

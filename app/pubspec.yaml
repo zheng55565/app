@@ -38,6 +38,8 @@ dependencies:
   dio: ^5.10.0
   flutter_secure_storage: ^10.3.1
   webview_flutter: ^4.10.0
+  path_provider: ^2.1.5
+  open_filex: ^4.7.0
   # HJ 聚合广告 SDK 封装（本地插件）。provider=hj 时使用；mock 联调不依赖原生层
   flutter_ads_plugin:
     path: ../plugins/flutter_ads_plugin
@@ -52,6 +54,10 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+
+dependency_overrides:
+  # 2.3.x adds JNI/NDK compilation; the app only needs the platform path API.
+  path_provider_android: 2.2.23
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

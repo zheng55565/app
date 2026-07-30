@@ -6,7 +6,7 @@
 import pg from 'pg';
 import crypto from 'node:crypto';
 
-const BASE = 'http://localhost:3000';
+const BASE = 'http://localhost:3001';
 const DB = 'postgres://postgres:postgres@localhost:5433/linuxdo_ad_reward';
 const AD_SECRET = 'local-test-ad-secret';
 

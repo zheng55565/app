@@ -108,7 +108,8 @@ public class SplashAd implements EventChannel.StreamHandler {
                 result.put("placementId", placementId);
                 if (eventSink != null) {
                     eventSink.success(result);
-                    eventSink.endOfStream();
+                    // EventChannel is plugin-scoped and reused by later ad sessions.
+                    // Ending it here makes Dart keep a closed subscription forever.
                 }
             }
 
@@ -132,7 +133,7 @@ public class SplashAd implements EventChannel.StreamHandler {
                 result.put("event", "onSplashClosed");
                 if (eventSink != null) {
                     eventSink.success(result);
-                    eventSink.endOfStream();
+                    // Keep the shared event stream alive for a later splash request.
                 }
             }
         });

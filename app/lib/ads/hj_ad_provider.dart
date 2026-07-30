@@ -1,14 +1,4 @@
-/// HJ 聚合广告 SDK Provider（基于 flutter_ads_plugin）
-///
-/// 激励视频流程：load（带 codeId/userId/透传参数）-> 等 onVideoAdLoadSuccess
-/// -> show -> 按回调 complete：
-/// - onVideoRewarded 且 isReward=true → earned（附 transId）
-/// - onVideoAdClosed 且未拿到有效奖励 → dismissed
-/// - load/play error、show 未 ready、超时 → failed
-///
-/// 隔离保证：home_balance 的 taskToken 通过 option（customData/extra）透传给
-/// 广告平台做服务端回调；game_recovery 只透传 requestId，本类不发起任何
-/// 网络请求——发奖与否完全由调用方按返回值处理。
+// HJ聚合广告SDK Provider。首页广告透传taskToken，游戏补救广告只透传requestId。
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -70,7 +60,7 @@ class HjAdProvider implements AdProvider {
         onSplashClosed: () {
           if (!done.isCompleted) done.complete(true);
         },
-        onSplashAdFailToLoad: (_, __, ___) {
+        onSplashAdFailToLoad: (_, _, _) {
           if (!done.isCompleted) done.complete(false);
         },
       );
@@ -133,8 +123,7 @@ class HjAdProvider implements AdProvider {
       // 等待关闭（播放最长几分钟，给足余量）。超时不能立刻放行下一场：
       // 原生广告可能还在播，标记僵尸，等真正 closed/error 时再释放会话
       try {
-        return await session.waitOutcome
-            .timeout(const Duration(minutes: 10));
+        return await session.waitOutcome.timeout(const Duration(minutes: 10));
       } on TimeoutException {
         zombie = true;
         session.waitOutcome.whenComplete(() {
@@ -163,10 +152,10 @@ class HjAdProvider implements AdProvider {
         onInterstitialAdClosed: () {
           if (!done.isCompleted) done.complete(true);
         },
-        onInterstitialAdLoadError: (_, __, ___) {
+        onInterstitialAdLoadError: (_, _, _) {
           if (!done.isCompleted) done.complete(false);
         },
-        onInterstitialAdPlayError: (_, __, ___) {
+        onInterstitialAdPlayError: (_, _, _) {
           if (!done.isCompleted) done.complete(false);
         },
       );

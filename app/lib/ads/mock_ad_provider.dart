@@ -1,9 +1,4 @@
-/// Mock 广告提供方：真实 SDK 接入前的占位实现，行为可视化便于联调
-///
-/// - 开屏：全屏倒计时页（可跳过）
-/// - 激励视频：模拟播放对话框，倒计时结束视为看完，看完后调用后端
-///   dev-complete 模拟广告平台服务端回调（仅 AD_DEV_SIMULATE=true 时后端受理）
-/// - 插屏：简单全屏对话框，手动关闭
+// Mock广告提供方：用于本地可视化联调开屏、激励视频和插屏流程。
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -31,7 +26,7 @@ class MockAdProvider implements AdProvider {
     await Navigator.of(context).push(
       PageRouteBuilder(
         opaque: true,
-        pageBuilder: (_, __, ___) => const _MockSplashPage(),
+        pageBuilder: (_, _, _) => const _MockSplashPage(),
       ),
     );
     return true;
@@ -87,8 +82,10 @@ class MockAdProvider implements AdProvider {
           child: Stack(
             children: [
               const Center(
-                child: Text('模拟插屏广告',
-                    style: TextStyle(color: Colors.white, fontSize: 24)),
+                child: Text(
+                  '模拟插屏广告',
+                  style: TextStyle(color: Colors.white, fontSize: 24),
+                ),
               ),
               Positioned(
                 top: 48,
@@ -162,8 +159,10 @@ class _MockSplashPageState extends State<_MockSplashPage> {
                 children: [
                   Icon(Icons.campaign, size: 96, color: Colors.white70),
                   SizedBox(height: 16),
-                  Text('模拟开屏广告',
-                      style: TextStyle(color: Colors.white, fontSize: 22)),
+                  Text(
+                    '模拟开屏广告',
+                    style: TextStyle(color: Colors.white, fontSize: 22),
+                  ),
                 ],
               ),
             ),
@@ -175,7 +174,7 @@ class _MockSplashPageState extends State<_MockSplashPage> {
                   backgroundColor: Colors.black38,
                   foregroundColor: Colors.white,
                 ),
-                  onPressed: _close,
+                onPressed: _close,
                 child: Text('跳过 $_seconds'),
               ),
             ),

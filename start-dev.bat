@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 REM ============================================================
 REM  new-api-app one-click dev startup
-REM  Starts: embedded PostgreSQL (5433) + API server (3000)
+REM  Starts: embedded PostgreSQL (5433) + API server (3001)
 REM          + Android emulator (AVD dev_phone) + installs the app
 REM  Usage:
 REM    start-dev.bat            start everything, install existing debug APK
@@ -47,8 +47,8 @@ if errorlevel 1 (
 echo        database is up
 
 echo.
-echo [2/6] API server - port 3000 - NODE_USE_ENV_PROXY=1
-netstat -ano | findstr ":3000 " | findstr "LISTENING" >nul
+echo [2/6] API server - port 3001 - NODE_USE_ENV_PROXY=1
+netstat -ano | findstr ":3001 " | findstr "LISTENING" >nul
 if errorlevel 1 (
   start "api-server" cmd /k "cd /d %SERVER_DIR% & set NODE_USE_ENV_PROXY=1& set NO_PROXY=localhost,127.0.0.1& npm run dev"
   echo        launching in window "api-server" ...
@@ -57,7 +57,7 @@ if errorlevel 1 (
 )
 set /a TRIES=0
 :wait_api
-curl --noproxy * -s -m 2 http://127.0.0.1:3000/healthz 2>nul | findstr "ok" >nul
+curl --noproxy * -s -m 2 http://127.0.0.1:3001/healthz 2>nul | findstr "ok" >nul
 if errorlevel 1 (
   set /a TRIES+=1
   if !TRIES! geq 20 (
@@ -67,7 +67,7 @@ if errorlevel 1 (
   ping -n 4 127.0.0.1 >nul
   goto wait_api
 )
-echo        API is up - http://127.0.0.1:3000/healthz OK
+echo        API is up - http://127.0.0.1:3001/healthz OK
 
 echo.
 echo [3/6] Android emulator - AVD %AVD%
@@ -98,9 +98,9 @@ echo        emulator booted
 echo.
 echo [5/6] Emulator network config - REQUIRED after every emulator restart
 "%ADB%" shell settings put global http_proxy %EMU_PROXY%
-"%ADB%" reverse tcp:3000 tcp:3000
+"%ADB%" reverse tcp:3001 tcp:3001
 echo        global http_proxy = %EMU_PROXY%  - in-emulator browser reaches linux.do
-echo        adb reverse tcp:3000             - OAuth callback localhost:3000 works
+echo        adb reverse tcp:3001             - OAuth callback localhost:3001 works
 
 if /i "%~1"=="nodeploy" (
   echo.
@@ -138,8 +138,8 @@ echo.
 echo ============================================================
 echo   ALL UP
 echo   DB        postgres://postgres:postgres@localhost:5433/linuxdo_ad_reward
-echo   API       http://localhost:3000   health: /healthz
-echo   Emulator  %AVD%   app reaches API via http://10.0.2.2:3000
+echo   API       http://localhost:3001   health: /healthz
+echo   Emulator  %AVD%   app reaches API via http://10.0.2.2:3001
 echo   NOTE  if the emulator is restarted, re-run this script or redo step 5
 echo ============================================================
 endlocal

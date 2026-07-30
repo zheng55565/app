@@ -19,6 +19,13 @@ import { config } from '../config.js';
 
 const station = () => config.station;
 
+export function rewardMicrounitsToQuota(
+  amountMicrounits,
+  quotaPerCny = config.station.quotaPerCny
+) {
+  return Math.round((Number(amountMicrounits) * Number(quotaPerCny)) / 1000000);
+}
+
 // ---------- mock 实现 ----------
 
 async function mockFindAccount(linuxdoUserId) {
@@ -32,11 +39,20 @@ async function mockFindAccount(linuxdoUserId) {
     station_user_id: Number(a.id),
     username: a.username,
     status: a.status,
+    // mock 账本直接以 New API quota 为单位存储。钱包接口读取
+    // station_quota，不能只返回历史字段 balance_microunits。
+    station_quota: Number(a.balance_microunits),
     balance_microunits: Number(a.balance_microunits),
   };
 }
 
 async function mockCreditReward(order) {
+  const rewardQuota = rewardMicrounitsToQuota(order.amount_microunits);
+  if (rewardQuota <= 0) {
+    const err = new Error(`换算后 quota 为 0（amount=${order.amount_microunits}）`);
+    err.code = 'IDEMPOTENCY_CONFLICT';
+    throw err;
+  }
   return withTransaction(async (client) => {
     // 幂等：同一 order_no 只入账一次，重复请求返回首次结果（§8.2）
     const { rows: existing } = await client.query(
@@ -46,7 +62,7 @@ async function mockCreditReward(order) {
     );
     if (existing.length > 0) {
       const t = existing[0];
-      if (Number(t.amount_microunits) !== Number(order.amount_microunits)) {
+      if (Number(t.amount_microunits) !== rewardQuota) {
         const err = new Error('幂等订单金额不一致');
         err.code = 'IDEMPOTENCY_CONFLICT';
         throw err;
@@ -55,7 +71,8 @@ async function mockCreditReward(order) {
         order_no: order.order_no,
         status: 'success',
         station_transaction_id: `mock_tx_${t.id}`,
-        credited_microunits: Number(t.amount_microunits),
+        credited_microunits: Number(order.amount_microunits),
+        credited_quota: rewardQuota,
         balance_microunits: Number(t.balance_after_microunits),
         duplicated: true,
       };
@@ -77,7 +94,7 @@ async function mockCreditReward(order) {
       throw err;
     }
 
-    const newBalance = Number(account.balance_microunits) + Number(order.amount_microunits);
+    const newBalance = Number(account.balance_microunits) + rewardQuota;
     await client.query(
       `UPDATE mock_station_accounts SET balance_microunits = $2, updated_at = NOW() WHERE id = $1`,
       [account.id, newBalance]
@@ -85,16 +102,92 @@ async function mockCreditReward(order) {
     const { rows: txRows } = await client.query(
       `INSERT INTO mock_station_transactions (station_user_id, order_no, amount_microunits, balance_after_microunits, source)
        VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [account.id, order.order_no, order.amount_microunits, newBalance, order.source || 'rewarded_ad']
+      [account.id, order.order_no, rewardQuota, newBalance, order.source || 'rewarded_ad']
     );
     return {
       order_no: order.order_no,
       status: 'success',
       station_transaction_id: `mock_tx_${txRows[0].id}`,
       credited_microunits: Number(order.amount_microunits),
+      credited_quota: rewardQuota,
       balance_microunits: newBalance,
     };
   });
+}
+
+async function mockDebitQuota(order) {
+  return withTransaction(async (client) => {
+    const amount = Math.max(1, Number(order.quota) || 0);
+    const { rows: existing } = await client.query(
+      `SELECT id, amount_microunits, balance_after_microunits
+       FROM mock_station_transactions WHERE order_no = $1`,
+      [order.order_no]
+    );
+    if (existing.length > 0) {
+      if (Number(existing[0].amount_microunits) !== -amount) {
+        const err = new Error('幂等扣额订单金额不一致');
+        err.code = 'IDEMPOTENCY_CONFLICT';
+        throw err;
+      }
+      return {
+        order_no: order.order_no,
+        status: 'success',
+        station_transaction_id: `mock_tx_${existing[0].id}`,
+        debited_quota: amount,
+        duplicated: true,
+      };
+    }
+    const { rows } = await client.query(
+      `SELECT id, status, balance_microunits FROM mock_station_accounts
+       WHERE id = $1 FOR UPDATE`,
+      [order.station_user_id]
+    );
+    const account = rows[0];
+    if (!account || account.status !== 'active') {
+      const err = new Error('中转站账号不可用');
+      err.code = 'ACCOUNT_DISABLED';
+      throw err;
+    }
+    const current = Number(account.balance_microunits);
+    if (current < amount) {
+      const err = new Error('AI额度不足，无法兑换游戏积分');
+      err.code = 'STATION_QUOTA_INSUFFICIENT';
+      err.status = 409;
+      throw err;
+    }
+    const balanceAfter = current - amount;
+    await client.query(
+      `UPDATE mock_station_accounts SET balance_microunits = $2, updated_at = NOW()
+       WHERE id = $1`,
+      [account.id, balanceAfter]
+    );
+    const { rows: txRows } = await client.query(
+      `INSERT INTO mock_station_transactions
+         (station_user_id, order_no, amount_microunits, balance_after_microunits, source)
+       VALUES ($1, $2, $3, $4, 'game_conversion') RETURNING id`,
+      [account.id, order.order_no, -amount, balanceAfter]
+    );
+    return {
+      order_no: order.order_no,
+      status: 'success',
+      station_transaction_id: `mock_tx_${txRows[0].id}`,
+      debited_quota: amount,
+    };
+  });
+}
+
+async function mockCreditQuota(order) {
+  const quota = Math.max(1, Number(order.quota) || 0);
+  const result = await mockCreditReward({
+    order_no: order.order_no,
+    station_user_id: order.station_user_id,
+    amount_microunits: quota,
+    source: 'game_conversion_reverse',
+  });
+  return {
+    ...result,
+    credited_quota: quota,
+  };
 }
 
 async function mockGetRewardOrder(orderNo) {
@@ -178,9 +271,8 @@ async function newapiFindAccount(linuxdoUserId, usernameHint) {
 }
 
 async function newapiCreditReward(order) {
-  const s = station();
   // 微单位(1元=1e6) -> new-api quota
-  const quota = Math.round((Number(order.amount_microunits) * s.quotaPerCny) / 1000000);
+  const quota = rewardMicrounitsToQuota(order.amount_microunits);
   if (quota <= 0) {
     const err = new Error(`换算后 quota 为 0（amount=${order.amount_microunits}）`);
     err.code = 'IDEMPOTENCY_CONFLICT';
@@ -198,6 +290,53 @@ async function newapiCreditReward(order) {
     station_transaction_id: `newapi_quota_${quota}_${order.order_no}`,
     credited_microunits: Number(order.amount_microunits),
     credited_quota: quota,
+  };
+}
+
+async function newapiDebitQuota(order) {
+  const quota = Math.max(1, Number(order.quota) || 0);
+  await newapiRequest('POST', '/api/user/manage', {
+    id: Number(order.station_user_id),
+    action: 'add_quota',
+    mode: 'subtract',
+    value: quota,
+  });
+  return {
+    order_no: order.order_no,
+    status: 'success',
+    station_transaction_id: `newapi_quota_subtract_${quota}_${order.order_no}`,
+    debited_quota: quota,
+  };
+}
+
+async function newapiCreditQuota(order) {
+  const quota = Math.max(1, Number(order.quota) || 0);
+  await newapiRequest('POST', '/api/user/manage', {
+    id: Number(order.station_user_id),
+    action: 'add_quota',
+    mode: 'add',
+    value: quota,
+  });
+  return {
+    order_no: order.order_no,
+    status: 'success',
+    station_transaction_id: `newapi_quota_add_${quota}_${order.order_no}`,
+    credited_quota: quota,
+  };
+}
+
+async function newapiListUsageLogs(linuxdoUserId, usernameHint, limit) {
+  const account = await newapiFindAccount(linuxdoUserId, usernameHint);
+  if (!account) return { items: [], total: 0 };
+  const pageSize = Math.min(100, Math.max(1, Number(limit) || 20));
+  const result = await newapiRequest(
+    'GET',
+    `/api/log/?p=1&page_size=${pageSize}&type=2&username=${encodeURIComponent(account.username)}`
+  );
+  const items = Array.isArray(result.data?.items) ? result.data.items : [];
+  return {
+    items: items.filter((item) => item && String(item.username) === account.username),
+    total: Number(result.data?.total) || items.length,
   };
 }
 
@@ -238,8 +377,29 @@ export function creditReward(order) {
   return httpRequest('POST', '/internal/v1/reward-orders', order, { 'Idempotency-Key': order.order_no });
 }
 
+export function debitQuota(order) {
+  if (station().mode === 'mock') return mockDebitQuota(order);
+  if (station().mode === 'newapi') return newapiDebitQuota(order);
+  return httpRequest('POST', '/internal/v1/quota-debit-orders', order, {
+    'Idempotency-Key': order.order_no,
+  });
+}
+
+export function creditQuota(order) {
+  if (station().mode === 'mock') return mockCreditQuota(order);
+  if (station().mode === 'newapi') return newapiCreditQuota(order);
+  return httpRequest('POST', '/internal/v1/quota-credit-orders', order, {
+    'Idempotency-Key': order.order_no,
+  });
+}
+
 export function getRewardOrder(orderNo) {
   if (station().mode === 'mock') return mockGetRewardOrder(orderNo);
   if (station().mode === 'newapi') return null; // new-api 无订单概念，以本地 reward_orders 为准
   return httpRequest('GET', `/internal/v1/reward-orders/${encodeURIComponent(orderNo)}`);
+}
+
+export function listUsageLogsByLinuxdoId(linuxdoUserId, usernameHint, limit = 20) {
+  if (station().mode !== 'newapi') return Promise.resolve({ items: [], total: 0 });
+  return newapiListUsageLogs(linuxdoUserId, usernameHint, limit);
 }

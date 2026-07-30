@@ -1,6 +1,9 @@
-/// 小游戏入口卡片（PRD §3.3）：打开 Unity WebGL 游戏页
+// 小游戏入口卡片：预览模式打开本地大厅，正式模式打开服务端游戏页。
 import 'package:flutter/material.dart';
 
+import '../ads/ad_service.dart';
+import '../config.dart';
+import '../pages/game_preview_page.dart';
 import '../pages/game_page.dart';
 
 class MiniGameCard extends StatelessWidget {
@@ -8,24 +11,36 @@ class MiniGameCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 弱化样式（描边 + 灰色调），不与广告主按钮竞争（PRD §7）
+    final colors = Theme.of(context).colorScheme;
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: colors.outlineVariant),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const GamePage()),
-        ),
+        borderRadius: BorderRadius.circular(16),
+        onTap: () async {
+          await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => AppConfig.previewMode
+                  ? const GamePreviewPage()
+                  : const GamePage(),
+            ),
+          );
+          if (context.mounted) {
+            await AdService.instance.maybeShowInterstitial(context);
+          }
+        },
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Row(
             children: [
-              Icon(Icons.videogame_asset_outlined,
-                  size: 40, color: Colors.deepPurple.shade300),
+              Icon(
+                Icons.videogame_asset_outlined,
+                size: 40,
+                color: colors.primary,
+              ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -33,32 +48,45 @@ class MiniGameCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        const Text('小游戏',
-                            style: TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.bold)),
+                        const Text(
+                          '游戏大厅',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
-                            color: Colors.deepPurple.shade50,
+                            color: colors.primaryContainer,
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: Text('试玩',
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.deepPurple.shade400)),
+                          child: Text(
+                            '4款',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: colors.onPrimaryContainer,
+                            ),
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Text('休闲小游戏合集，随点随玩',
-                        style: TextStyle(
-                            fontSize: 13, color: Colors.grey.shade600)),
+                    Text(
+                      '石头剪刀布、扫雷红包、八房生存局、宝石消消乐',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: Colors.grey.shade400),
+              Icon(Icons.chevron_right, color: colors.onSurfaceVariant),
             ],
           ),
         ),

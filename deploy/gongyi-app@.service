@@ -1,0 +1,31 @@
+[Unit]
+Description=Gongyi App backend instance on port %i
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/gongyi-app/server
+EnvironmentFile=/etc/gongyi-app.env
+Environment=NODE_ENV=production
+Environment=PORT=%i
+ExecStart=/usr/bin/node src/index.js
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+UMask=0077
+MemoryHigh=512M
+MemoryMax=768M
+TasksMax=256
+
+[Install]
+WantedBy=multi-user.target

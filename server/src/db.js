@@ -1,7 +1,17 @@
 import pg from 'pg';
 import { config } from './config.js';
 
-export const pool = new pg.Pool({ connectionString: config.databaseUrl });
+export const pool = new pg.Pool({
+  connectionString: config.databaseUrl,
+  max: config.database.poolMax,
+  idleTimeoutMillis: config.database.idleTimeoutMs,
+  connectionTimeoutMillis: config.database.connectionTimeoutMs,
+  options: `-c timezone=${config.database.timezone}`,
+});
+
+pool.on('error', (err) => {
+  console.error('[db] 空闲连接异常:', err.message);
+});
 
 export const query = (text, params) => pool.query(text, params);
 

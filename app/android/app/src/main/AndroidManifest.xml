@@ -5,7 +5,7 @@
         android:label="公益中转站"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="true"
+        android:usesCleartextTraffic="false"
         android:allowBackup="false"
         tools:replace="android:allowBackup,android:label">
         <!-- allowBackup/label 与广告 SDK（百度/穿山甲等）Manifest 冲突，

@@ -66,6 +66,9 @@ CREATE TABLE IF NOT EXISTS ad_tasks (
     reward_amount NUMERIC(18, 6) NOT NULL,
     status VARCHAR(30) NOT NULL DEFAULT 'created', -- created | rewarded | expired
     callback_payload TEXT,
+    policy_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb,
+    client_transaction_id VARCHAR(150),
+    client_completed_at TIMESTAMP,
     expires_at TIMESTAMP,
     watched_at TIMESTAMP,
     rewarded_at TIMESTAMP,
@@ -73,6 +76,88 @@ CREATE TABLE IF NOT EXISTS ad_tasks (
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_ad_tasks_user ON ad_tasks (user_id, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_ad_tasks_client_transaction
+    ON ad_tasks (ad_platform, client_transaction_id)
+    WHERE client_transaction_id IS NOT NULL;
+
+-- 广告平台回调审计：无论验证成功或失败都记录，签名原文不会入库
+CREATE TABLE IF NOT EXISTS ad_callback_audits (
+    id BIGSERIAL PRIMARY KEY,
+    provider VARCHAR(30) NOT NULL,
+    request_method VARCHAR(10) NOT NULL,
+    request_path VARCHAR(300) NOT NULL,
+    user_id VARCHAR(100),
+    transaction_id VARCHAR(150),
+    task_token VARCHAR(150),
+    placement_id VARCHAR(150),
+    has_extra_info BOOLEAN NOT NULL DEFAULT FALSE,
+    signature_present BOOLEAN NOT NULL DEFAULT FALSE,
+    signature_valid BOOLEAN,
+    http_status INT,
+    outcome VARCHAR(300),
+    payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+    received_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    completed_at TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_ad_callback_audits_received
+    ON ad_callback_audits (received_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ad_callback_audits_transaction
+    ON ad_callback_audits (provider, transaction_id)
+    WHERE transaction_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_ad_callback_audits_task
+    ON ad_callback_audits (task_token, received_at DESC)
+    WHERE task_token IS NOT NULL;
+
+-- 管理员登录审计（管理员身份与 App 用户身份完全分离）
+CREATE TABLE IF NOT EXISTS admin_audit_logs (
+    id BIGSERIAL PRIMARY KEY,
+    username VARCHAR(100),
+    event_type VARCHAR(60) NOT NULL,
+    result VARCHAR(30) NOT NULL,
+    detail VARCHAR(300),
+    ip_address VARCHAR(60),
+    user_agent VARCHAR(300),
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_admin_audit_created
+    ON admin_audit_logs (created_at DESC);
+
+-- Web 插屏埋点，仅用于统计，绝不参与额度或游戏积分结算
+CREATE TABLE IF NOT EXISTS ad_client_events (
+    id BIGSERIAL PRIMARY KEY,
+    event_id VARCHAR(64) NOT NULL UNIQUE,
+    creative_id VARCHAR(100),
+    placement VARCHAR(100) NOT NULL,
+    trigger_name VARCHAR(60) NOT NULL,
+    event_type VARCHAR(30) NOT NULL,
+    session_id VARCHAR(64),
+    source_ip_hash VARCHAR(128),
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    occurred_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_ad_client_event_type CHECK (
+      event_type IN ('impression', 'click', 'close', 'load_failed')
+    )
+);
+CREATE INDEX IF NOT EXISTS idx_ad_client_events_created
+    ON ad_client_events (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ad_client_events_type
+    ON ad_client_events (event_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ad_client_events_trigger
+    ON ad_client_events (trigger_name, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ad_client_events_ip_rate
+    ON ad_client_events (source_ip_hash, created_at DESC)
+    WHERE source_ip_hash IS NOT NULL;
+
+-- 可由管理端调整的非密钥运营参数；每次修改同时写管理员审计。
+CREATE TABLE IF NOT EXISTS runtime_settings (
+    setting_key VARCHAR(80) PRIMARY KEY,
+    setting_value JSONB NOT NULL DEFAULT '{}'::jsonb,
+    updated_by VARCHAR(100),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_runtime_settings_updated
+    ON runtime_settings (updated_at DESC);
 
 -- 每日广告次数表
 CREATE TABLE IF NOT EXISTS daily_ad_limits (

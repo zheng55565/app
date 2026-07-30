@@ -15,8 +15,8 @@ android {
     }
 
     defaultConfig {
-        // applicationId 必须与 HJ 广告平台登记的包名一致（appId=111465），
-        // 否则 SDK 校验不过、广告无填充。namespace（代码包结构）保持不变。
+        // applicationId 必须与 HJ 广告平台最终登记的包名一致，创建应用后再锁定。
+        // namespace 仅用于代码包结构，可与发布包名不同。
         applicationId = "com.benben.cloudbusiness.ak.ka"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.

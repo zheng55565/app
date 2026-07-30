@@ -1,12 +1,11 @@
-/// 主容器：底部双标签导航（PRD §2/§5）
-///
-/// IndexedStack 保留各标签的滚动位置与已加载数据；
-/// 切换标签不重建页面、不重复登录流程。
+// 主容器：工作台、生图、额度和我的四栏导航。
 import 'package:flutter/material.dart';
 
 import '../ads/ad_service.dart';
 import 'home_page.dart';
+import 'image_studio_page.dart';
 import 'profile_page.dart';
+import 'workbench_page.dart';
 
 class MainShellPage extends StatefulWidget {
   const MainShellPage({super.key});
@@ -21,25 +20,64 @@ class _MainShellPageState extends State<MainShellPage> {
   void _onSelect(int i) {
     if (i == _index) return;
     setState(() => _index = i);
-    // 插屏广告预留触发点：标签切换（服务端未开启时为空操作，无任何请求）
-    AdService.instance.maybeShowInterstitial(context);
+    if (i == 1 || i == 3) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) AdService.instance.maybeShowInterstitial(context);
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _index,
-        children: const [HomePage(), ProfilePage()],
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF0F3460), Color(0xFF051937)],
+          ),
+        ),
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: RadialGradient(
+              center: Alignment(0, -1.1),
+              radius: 1.15,
+              colors: [Color(0x2636A8E8), Color(0x00051937)],
+            ),
+          ),
+          child: CustomPaint(
+            painter: _GridTexturePainter(),
+            child: IndexedStack(
+              index: _index,
+              children: [
+                WorkbenchPage(onOpenProfile: () => _onSelect(3)),
+                ImageStudioPage(onOpenProfile: () => _onSelect(3)),
+                const HomePage(),
+                const ProfilePage(),
+              ],
+            ),
+          ),
+        ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: _onSelect,
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: '首页',
+            icon: Icon(Icons.terminal_outlined),
+            selectedIcon: Icon(Icons.terminal),
+            label: '工作台',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.image_outlined),
+            selectedIcon: Icon(Icons.image),
+            label: '生图',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.redeem_outlined),
+            selectedIcon: Icon(Icons.redeem),
+            label: '额度',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),
@@ -50,4 +88,23 @@ class _MainShellPageState extends State<MainShellPage> {
       ),
     );
   }
+}
+
+class _GridTexturePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0x0DFFFFFF)
+      ..strokeWidth = 0.5;
+    const spacing = 24.0;
+    for (double x = 0; x <= size.width; x += spacing) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+    for (double y = 0; y <= size.height; y += spacing) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

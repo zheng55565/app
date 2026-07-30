@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS reward_orders (
     ad_task_id VARCHAR(120),
     provider VARCHAR(60),
     provider_transaction_id VARCHAR(150),
-    status VARCHAR(30) NOT NULL DEFAULT 'pending', -- pending | success | failed | review
+    status VARCHAR(30) NOT NULL DEFAULT 'pending', -- pending | crediting | success | failed | review
     station_transaction_id VARCHAR(120),
     fail_reason VARCHAR(300),
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),

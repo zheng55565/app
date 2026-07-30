@@ -1,20 +1,7 @@
-/// 广告服务门面：业务层唯一入口
-///
-/// 职责：拉取远程广告配置（带本地缓存）、按 provider 选择实现、统一频控与
-/// 远程开关门禁、全局互斥（同一时间只展示一个激励广告）。
-///
-/// 激励视频两个显式入口（广告位隔离，绝不混用）：
-/// - [showBalanceRewarded]：首页余额广告（rewarded_home），必须携带
-///   /api/ad-task/start 签发的 taskToken，走服务端回调发奖；
-/// - [showGameRecoveryRewarded]：小游戏本局补救（rewarded_game），只回传
-///   播放结果给游戏侧，不建任务、不轮询余额、永不发奖到钱包。
-///
-/// 初始化拆成两步，配合隐私合规门（工信部/个保法：隐私政策同意之后才能
-/// 初始化采集设备标识的广告 SDK）：
-/// - [initConfig]：只拉配置，不碰 SDK，可在隐私弹窗之前执行；
-/// - [initSdk]：初始化 provider。非 mock provider 在用户同意
-///   （[grantConsent]）之前一律降级为 [DisabledAdProvider]，这是运行时
-///   强制门禁，不依赖调用方自觉。Mock 不采集任何信息，不受限。
+// 广告服务门面：业务层唯一入口。
+//
+// 职责：远程配置、provider选择、频控、隐私门禁和激励广告全局互斥。
+// 首页余额广告携带taskToken并由服务端回调发奖；游戏补救广告只影响本局。
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -34,6 +21,7 @@ class AdService {
   static const _kConfigCache = 'ad_config_cache';
   static const _kConsent = 'ad_sdk_consent';
   static const _kInterstitialDaily = 'ad_interstitial_daily';
+  static const _kSplashDaily = 'ad_splash_daily';
 
   /// 配置视为新鲜的时长；超过后在广告入口静默重拉，让远程开关在长会话中生效
   static const _configTtl = Duration(minutes: 30);
@@ -46,6 +34,9 @@ class AdService {
   DateTime? _lastInterstitialAt;
   int _interstitialShownToday = 0;
   String _interstitialCountDate = '';
+  int _splashShownToday = 0;
+  String _splashCountDate = '';
+  DateTime? _lastSplashAt;
 
   /// 激励广告全局互斥：同一时间只允许一个激励广告在播（首页/游戏共用一把锁）
   bool _rewardedShowing = false;
@@ -57,6 +48,7 @@ class AdService {
   bool get splashEnabled => _config.splash.enabled;
   bool get rewardedEnabled => _config.rewardedHome.enabled;
   bool get gameRewardedEnabled => _config.rewardedGame.enabled;
+  bool get requiresConsent => _config.provider != 'mock' && !_consentGranted;
 
   /// App 启动时调用。任何失败都不阻塞启动。
   Future<void> init() async {
@@ -86,7 +78,8 @@ class AdService {
   Future<void> grantConsent() async {
     _consentGranted = true;
     await _storage.write(key: _kConsent, value: 'true');
-    if (_provider is DisabledAdProvider && _config.provider != 'mock') {
+    if ((!_initialized || _provider is DisabledAdProvider) &&
+        _config.provider != 'mock') {
       await initSdk();
     }
   }
@@ -95,8 +88,11 @@ class AdService {
   /// 失败保持现状（缓存或 fallback）。
   Future<void> _refreshConfig() async {
     try {
-      final json = await ApiClient.instance
-          .requestLegacy('GET', '/api/app/ad-config', auth: false);
+      final json = await ApiClient.instance.requestLegacy(
+        'GET',
+        '/api/app/ad-config',
+        auth: false,
+      );
       _config = AdConfig.fromJson(json);
       _lastConfigFetchAt = DateTime.now();
       await _storage.write(key: _kConfigCache, value: jsonEncode(json));
@@ -140,32 +136,75 @@ class AdService {
   }
 
   String get _adUserId =>
-      AuthService.instance.currentUser?.stationUserId?.toString() ?? '';
+      AuthService.instance.currentUser?.userId?.toString() ?? '';
 
   /// 开屏广告（冷启动）。未初始化/未启用/失败都直接放行。
   Future<void> maybeShowSplash(BuildContext context) async {
     if (!_initialized || !_config.splash.enabled) return;
-    await _provider.showSplash(context);
+    final now = DateTime.now();
+    await _loadSplashCount(now);
+    final dailyMax = _config.splash.dailyMax;
+    if (dailyMax > 0 && _splashShownToday >= dailyMax) return;
+    final minInterval = Duration(seconds: _config.splash.minIntervalSec);
+    if (_lastSplashAt != null && now.difference(_lastSplashAt!) < minInterval) {
+      return;
+    }
+    if (!context.mounted) return;
+    final shown = await _provider.showSplash(context);
+    if (!shown) return;
+    _lastSplashAt = now;
+    _splashShownToday++;
+    await _storage.write(
+      key: _kSplashDaily,
+      value:
+          '$_splashCountDate|$_splashShownToday|${now.millisecondsSinceEpoch}',
+    );
+  }
+
+  Future<void> _loadSplashCount(DateTime now) async {
+    final today =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    if (_splashCountDate == today) return;
+    _splashCountDate = today;
+    _splashShownToday = 0;
+    _lastSplashAt = null;
+    try {
+      final raw = await _storage.read(key: _kSplashDaily);
+      final parts = raw?.split('|');
+      if (parts != null && parts.length == 3 && parts[0] == today) {
+        _splashShownToday = int.tryParse(parts[1]) ?? 0;
+        final lastMs = int.tryParse(parts[2]);
+        if (lastMs != null) {
+          _lastSplashAt = DateTime.fromMillisecondsSinceEpoch(lastMs);
+        }
+      }
+    } catch (_) {
+      // 频控状态读取失败时按本次会话重新计数，不阻塞启动。
+    }
   }
 
   /// 首页余额广告（发奖核心流程）。
   /// 远程总闸在此统一拦截：后端 AD_REWARDED_ENABLED=false 时不发版即可下线。
-  Future<RewardedAdResult> showBalanceRewarded(BuildContext context,
-      {required String taskToken}) async {
-    if (!_initialized) return RewardedAdResult.disabled;
+  Future<RewardedOutcome> showBalanceRewarded(
+    BuildContext context, {
+    required String taskToken,
+  }) async {
+    if (!_initialized) return RewardedOutcome.disabled;
     await _refreshConfigIfStale();
-    if (!_config.rewardedHome.enabled) return RewardedAdResult.disabled;
-    if (!context.mounted) return RewardedAdResult.failed;
-    if (_rewardedShowing) return RewardedAdResult.failed;
+    if (!_config.rewardedHome.enabled) return RewardedOutcome.disabled;
+    if (_adUserId.isEmpty) return RewardedOutcome.failed;
+    if (!context.mounted) return RewardedOutcome.failed;
+    if (_rewardedShowing) return RewardedOutcome.failed;
     _rewardedShowing = true;
     try {
-      final outcome = await _provider.showRewarded(
+      return await _provider.showRewarded(
         context,
         slot: _config.rewardedHome,
         request: RewardedRequest.homeBalance(
-            taskToken: taskToken, userId: _adUserId),
+          taskToken: taskToken,
+          userId: _adUserId,
+        ),
       );
-      return outcome.result;
     } finally {
       _rewardedShowing = false;
     }
@@ -177,6 +216,7 @@ class AdService {
   /// 重复请求刷出两次奖励。
   Future<RewardedOutcome> showGameRecoveryRewarded(
     BuildContext context, {
+    required String taskToken,
     required String gameId,
     required String recoveryType,
     required String requestId,
@@ -200,6 +240,7 @@ class AdService {
         context,
         slot: _config.rewardedGame,
         request: RewardedRequest.gameRecovery(
+          taskToken: taskToken,
           gameId: gameId,
           recoveryType: recoveryType,
           requestId: requestId,
@@ -227,6 +268,7 @@ class AdService {
     await _loadInterstitialCount(now);
     final dailyMax = _config.interstitial.dailyMax;
     if (dailyMax > 0 && _interstitialShownToday >= dailyMax) return;
+    if (!context.mounted) return;
 
     final shown = await _provider.showInterstitial(context);
     if (shown) {

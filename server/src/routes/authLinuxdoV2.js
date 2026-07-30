@@ -359,6 +359,7 @@ router.post('/exchange', async (req, res, next) => {
       expires_in: config.auth.accessTokenTtlSec,
       refresh_token: result.refreshToken,
       user: {
+        id: Number(result.user.id),
         linuxdo_username: result.user.linuxdo_username,
         station_user_id: result.user.station_user_id ? Number(result.user.station_user_id) : null,
         station_status: 'active',
@@ -416,6 +417,7 @@ router.post('/refresh', async (req, res, next) => {
       refresh_token: result.newRefreshToken,
       // 回传用户信息：App 冷启动静默续期后无需额外请求即可展示用户名
       user: {
+        id: Number(result.user.id),
         linuxdo_username: result.user.linuxdo_username,
         station_user_id: result.user.station_user_id
           ? Number(result.user.station_user_id)

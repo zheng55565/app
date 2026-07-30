@@ -116,7 +116,8 @@ public class InterstitialAd implements EventChannel.StreamHandler {
                 result.put("event", "onInterstitialAdClosed");
                 if (eventSink != null) {
                     eventSink.success(result);
-                    eventSink.endOfStream();
+                    // Keep the plugin-scoped stream alive. The same subscription is
+                    // reused by the next frequency-controlled interstitial session.
                 }
             }
 
@@ -130,7 +131,7 @@ public class InterstitialAd implements EventChannel.StreamHandler {
                 result.put("placementId", placementId);
                 if (eventSink != null) {
                     eventSink.success(result);
-                    eventSink.endOfStream();
+                    // Do not terminate the shared EventChannel on a single load error.
                 }
             }
 
@@ -144,7 +145,7 @@ public class InterstitialAd implements EventChannel.StreamHandler {
                 result.put("placementId", placementId);
                 if (eventSink != null) {
                     eventSink.success(result);
-                    eventSink.endOfStream();
+                    // Do not terminate the shared EventChannel on a single play error.
                 }
             }
         });

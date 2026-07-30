@@ -28,19 +28,21 @@ enum RewardedAdResult {
 
 /// 一次激励视频播放请求（购前上下文）
 class RewardedRequest {
-  const RewardedRequest.homeBalance({required String this.taskToken, this.userId = ''})
-      : purpose = 'home_balance',
-        gameId = null,
-        recoveryType = null,
-        requestId = null;
+  const RewardedRequest.homeBalance({
+    required String this.taskToken,
+    this.userId = '',
+  }) : purpose = 'home_balance',
+       gameId = null,
+       recoveryType = null,
+       requestId = null;
 
   const RewardedRequest.gameRecovery({
+    required String this.taskToken,
     required String this.gameId,
     required String this.recoveryType,
     required String this.requestId,
     this.userId = '',
-  })  : purpose = 'game_recovery',
-        taskToken = null;
+  }) : purpose = 'game_recovery';
 
   /// 'home_balance' | 'game_recovery'
   final String purpose;
@@ -97,12 +99,12 @@ class AdSlotConfig {
   final int minIntervalSec;
 
   factory AdSlotConfig.fromJson(Map<String, dynamic>? json) => AdSlotConfig(
-        enabled: (json?['enabled'] as bool?) ?? false,
-        unitId: (json?['unit_id'] as String?) ?? '',
-        cooldownSec: (json?['cooldown_sec'] as num?)?.toInt() ?? 180,
-        dailyMax: (json?['daily_max'] as num?)?.toInt() ?? 0,
-        minIntervalSec: (json?['min_interval_sec'] as num?)?.toInt() ?? 0,
-      );
+    enabled: (json?['enabled'] as bool?) ?? false,
+    unitId: (json?['unit_id'] as String?) ?? '',
+    cooldownSec: (json?['cooldown_sec'] as num?)?.toInt() ?? 180,
+    dailyMax: (json?['daily_max'] as num?)?.toInt() ?? 0,
+    minIntervalSec: (json?['min_interval_sec'] as num?)?.toInt() ?? 0,
+  );
 
   static const disabled = AdSlotConfig(enabled: false, unitId: '');
 }
@@ -137,17 +139,20 @@ class AdConfig {
   AdSlotConfig get rewarded => rewardedHome;
 
   factory AdConfig.fromJson(Map<String, dynamic> json) => AdConfig(
-        provider: (json['provider'] as String?) ?? 'mock',
-        appId: (json['app_id'] as String?) ?? '',
-        splash: AdSlotConfig.fromJson(json['splash'] as Map<String, dynamic>?),
-        // 新服务端下发 rewarded_home；旧服务端只有 rewarded，回退兼容
-        rewardedHome: AdSlotConfig.fromJson(
-            (json['rewarded_home'] ?? json['rewarded']) as Map<String, dynamic>?),
-        rewardedGame: AdSlotConfig.fromJson(
-            json['rewarded_game'] as Map<String, dynamic>?),
-        interstitial:
-            AdSlotConfig.fromJson(json['interstitial'] as Map<String, dynamic>?),
-      );
+    provider: (json['provider'] as String?) ?? 'mock',
+    appId: (json['app_id'] as String?) ?? '',
+    splash: AdSlotConfig.fromJson(json['splash'] as Map<String, dynamic>?),
+    // 新服务端下发 rewarded_home；旧服务端只有 rewarded，回退兼容
+    rewardedHome: AdSlotConfig.fromJson(
+      (json['rewarded_home'] ?? json['rewarded']) as Map<String, dynamic>?,
+    ),
+    rewardedGame: AdSlotConfig.fromJson(
+      json['rewarded_game'] as Map<String, dynamic>?,
+    ),
+    interstitial: AdSlotConfig.fromJson(
+      json['interstitial'] as Map<String, dynamic>?,
+    ),
+  );
 
   /// 无远程配置也无本地缓存时的保守默认：全部禁用。
   /// 发奖流程依赖后端（/api/ad-task/start），后端不可达时开广告位没有意义；
@@ -210,8 +215,7 @@ class DisabledAdProvider implements AdProvider {
     Object context, {
     required AdSlotConfig slot,
     required RewardedRequest request,
-  }) async =>
-      RewardedOutcome.disabled;
+  }) async => RewardedOutcome.disabled;
 
   @override
   Future<bool> showInterstitial(Object context) async => false;

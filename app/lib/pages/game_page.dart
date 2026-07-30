@@ -1,24 +1,14 @@
-/// 小游戏页面：WebView 承载 Unity WebGL，JavaScriptChannel 双向通信
-///
-/// 通信协议（与 Unity 侧 jslib 桥接约定）：
-/// Unity -> Flutter（经 window.GongyiBridge.postMessage）：
-///   {"type":"game_reward_request","requestId":"...","gameId":"snake","recoveryType":"revive"}
-///   {"type":"game_ready"}   // 可选：游戏加载完成
-///   {"type":"game_exit"}    // 可选：请求返回 App
-/// Flutter -> Unity（经 evaluateJavascript 调 window.onGongyiMessage(json)）：
-///   {"type":"game_reward_result","requestId":"原样返回","result":"earned|dismissed|failed","transId":"..."}
-///
-/// 隔离铁律：本页面的广告只走 AdService.showGameRecoveryRewarded
-/// （rewarded_game 广告位），绝不调用 /api/ad-task/start、不轮询余额、
-/// 不触碰首页每日次数。requestId 两端各自去重，一次请求只消费一次。
+// 本站小游戏页：仅允许配置域名导航，并通过白名单桥接游戏接口。
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../api/api_client.dart';
 import '../ads/ad_provider.dart';
 import '../ads/ad_service.dart';
 import '../config.dart';
+import '../game/game_service.dart';
 
 class GamePage extends StatefulWidget {
   const GamePage({super.key});
@@ -27,69 +17,60 @@ class GamePage extends StatefulWidget {
   State<GamePage> createState() => _GamePageState();
 }
 
-class _GamePageState extends State<GamePage> with WidgetsBindingObserver {
+class _GamePageState extends State<GamePage> {
   late final WebViewController _controller;
+  late final Uri _trustedGameUri;
   bool _loading = true;
   String? _loadError;
-
-  /// 本页已处理过的 requestId（Flutter 侧第一道去重；AdService 内还有一道）
-  final Set<String> _handledRequestIds = <String>{};
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
+    _trustedGameUri = Uri.parse(AppConfig.gameUrl);
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(Colors.black)
+      ..setBackgroundColor(const Color(0xFF051937))
       ..addJavaScriptChannel(
         'GongyiBridge',
         onMessageReceived: (msg) => _onGameMessage(msg.message),
       )
-      ..setNavigationDelegate(NavigationDelegate(
-        onPageFinished: (_) {
-          if (mounted) setState(() => _loading = false);
-        },
-        onWebResourceError: (e) {
-          // 只处理主文档加载失败；子资源错误不整页报错
-          if (e.isForMainFrame == true && mounted) {
-            setState(() {
-              _loading = false;
-              _loadError = '小游戏加载失败（${e.errorCode}），请检查网络后重试';
-            });
-          }
-        },
-      ))
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onNavigationRequest: (request) {
+            final target = Uri.tryParse(request.url);
+            return target != null && _isTrustedNavigation(target)
+                ? NavigationDecision.navigate
+                : NavigationDecision.prevent;
+          },
+          onPageFinished: (_) {
+            if (mounted) setState(() => _loading = false);
+          },
+          onWebResourceError: (e) {
+            // 只处理主文档加载失败；子资源错误不整页报错
+            if (e.isForMainFrame == true && mounted) {
+              setState(() {
+                _loading = false;
+                _loadError = '小游戏加载失败（${e.errorCode}），请检查网络后重试';
+              });
+            }
+          },
+        ),
+      )
       ..loadRequest(Uri.parse(AppConfig.gameUrl));
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    // 卸载页面内容：否则原生 WebView 要等 Dart GC 才销毁，Unity 的
-    // WebAudio 音乐/WASM 逻辑会在返回首页后继续跑
+    // 主动卸载页面，避免WebView脚本在返回首页后继续运行。
     _controller.loadRequest(Uri.parse('about:blank'));
     super.dispose();
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // 切后台暂停游戏（Chromium 不会自动停 WebAudio）；回前台恢复。
-    // 通知型消息，游戏侧未实现 onGongyiMessage 时静默无害。
-    if (state == AppLifecycleState.paused) {
-      _postToGame({'type': 'app_paused'});
-      _controller.runJavaScript(
-        'try{window.unityInstance&&window.unityInstance.Module'
-        '&&(window.unityInstance.Module.pauseMainLoop&&window.unityInstance.Module.pauseMainLoop());'
-        'window.AudioContext&&void 0}catch(e){}',
-      ).catchError((_) {});
-    } else if (state == AppLifecycleState.resumed) {
-      _postToGame({'type': 'app_resumed'});
-      _controller.runJavaScript(
-        'try{window.unityInstance&&window.unityInstance.Module'
-        '&&(window.unityInstance.Module.resumeMainLoop&&window.unityInstance.Module.resumeMainLoop())}catch(e){}',
-      ).catchError((_) {});
-    }
+  bool _isTrustedNavigation(Uri target) {
+    if (target.scheme == 'about' && target.path == 'blank') return true;
+    return target.scheme == _trustedGameUri.scheme &&
+        target.host == _trustedGameUri.host &&
+        target.port == _trustedGameUri.port;
   }
 
   Future<void> _onGameMessage(String raw) async {
@@ -98,8 +79,8 @@ class _GamePageState extends State<GamePage> with WidgetsBindingObserver {
       if (decoded is! Map<String, dynamic>) return;
       final msg = decoded;
       switch (msg['type']) {
-        case 'game_reward_request':
-          await _handleRewardRequest(msg);
+        case 'game_api_request':
+          await _handleApiRequest(msg);
         case 'game_exit':
           if (mounted) Navigator.of(context).maybePop();
         // game_ready 等其他消息暂不处理
@@ -110,48 +91,99 @@ class _GamePageState extends State<GamePage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _handleRewardRequest(Map<String, dynamic> msg) async {
-    // 远程内容发来的字段类型不可信，用 is 检查而非 as 强转
-    final requestId = msg['requestId'] is String ? msg['requestId'] as String : '';
-    final gameId = msg['gameId'] is String ? msg['gameId'] as String : '';
-    final recoveryType =
-        msg['recoveryType'] is String ? msg['recoveryType'] as String : '';
-    if (requestId.isEmpty || gameId.isEmpty) return;
-
-    // 同一 requestId 只消费一次（重复消息直接忽略，连 failed 都不回，
-    // 避免游戏侧把重复回执当成新结果）
-    if (_handledRequestIds.contains(requestId)) return;
-    _handledRequestIds.add(requestId);
-
-    RewardedOutcome outcome;
-    if (!mounted) return;
+  Future<void> _handleApiRequest(Map<String, dynamic> msg) async {
+    final requestId = msg['requestId'] is String
+        ? msg['requestId'] as String
+        : '';
+    final action = msg['action'] is String ? msg['action'] as String : '';
+    final payload = msg['payload'] is Map
+        ? Map<String, dynamic>.from(msg['payload'] as Map)
+        : <String, dynamic>{};
+    if (requestId.isEmpty || action.isEmpty) return;
     try {
-      outcome = await AdService.instance.showGameRecoveryRewarded(
-        context,
-        gameId: gameId,
-        recoveryType: recoveryType,
-        requestId: requestId,
-      );
+      if (action == 'match3_recover_ad') {
+        final data = await _recoverMatch3(payload);
+        _postToGame({
+          'type': 'game_api_result',
+          'requestId': requestId,
+          'ok': true,
+          'data': data,
+        });
+        return;
+      }
+      final data = await GameService.instance.execute(action, payload);
+      _postToGame({
+        'type': 'game_api_result',
+        'requestId': requestId,
+        'ok': true,
+        'data': data,
+      });
+    } on ApiException catch (error) {
+      _postToGame({
+        'type': 'game_api_result',
+        'requestId': requestId,
+        'ok': false,
+        'error': {'code': error.code, 'message': error.message},
+      });
     } catch (_) {
-      outcome = RewardedOutcome.failed;
+      _postToGame({
+        'type': 'game_api_result',
+        'requestId': requestId,
+        'ok': false,
+        'error': {'code': 'GAME_REQUEST_FAILED', 'message': '游戏服务暂时不可用'},
+      });
     }
+  }
 
-    if (!mounted) return;
-    final result = switch (outcome.result) {
-      RewardedAdResult.earned => 'earned',
-      RewardedAdResult.dismissed => 'dismissed',
-      _ => 'failed', // failed 与 disabled 对游戏侧同义：不得改变游戏状态
-    };
-    _postToGame({
-      'type': 'game_reward_result',
-      'requestId': requestId,
-      'result': result,
-      if (outcome.transId != null) 'transId': outcome.transId,
+  Future<Map<String, dynamic>> _recoverMatch3(
+    Map<String, dynamic> payload,
+  ) async {
+    final sessionId = payload['session_id']?.toString() ?? '';
+    final actionRequestId = payload['action_request_id']?.toString() ?? '';
+    final task = await GameService.instance.execute('match3_recovery_start', {
+      'session_id': sessionId,
     });
+    final taskToken = task['task_token']?.toString() ?? '';
+    if (taskToken.isEmpty) {
+      throw ApiException('GAME_AD_TASK_FAILED', '无法创建复活广告任务');
+    }
+    if (task['status'] == 'verified' || task['status'] == 'consumed') {
+      return GameService.instance.execute('match3_recovery_consume', {
+        'task_token': taskToken,
+      });
+    }
+    if (!mounted) throw ApiException('GAME_PAGE_CLOSED', '游戏页面已关闭');
+    final outcome = await AdService.instance.showGameRecoveryRewarded(
+      context,
+      taskToken: taskToken,
+      gameId: sessionId,
+      recoveryType: 'match3_moves',
+      requestId: actionRequestId,
+    );
+    if (outcome.result == RewardedAdResult.disabled) {
+      throw ApiException('GAME_AD_DISABLED', '复活广告暂不可用');
+    }
+    if (outcome.result != RewardedAdResult.earned) {
+      throw ApiException('GAME_AD_NOT_COMPLETED', '完整看完广告后才能复活');
+    }
+    for (var attempt = 0; attempt < 15; attempt += 1) {
+      final status = await GameService.instance.execute(
+        'match3_recovery_status',
+        {'task_token': taskToken},
+      );
+      if (status['status'] == 'verified' || status['status'] == 'consumed') {
+        return GameService.instance.execute('match3_recovery_consume', {
+          'task_token': taskToken,
+        });
+      }
+      await Future<void>.delayed(const Duration(seconds: 1));
+    }
+    throw ApiException('GAME_AD_CALLBACK_PENDING', '广告正在验证，请稍后重试');
   }
 
   void _postToGame(Map<String, dynamic> message) {
-    final js = 'window.onGongyiMessage&&window.onGongyiMessage('
+    final js =
+        'window.onGongyiMessage&&window.onGongyiMessage('
         '${jsonEncode(jsonEncode(message))})';
     _controller.runJavaScript(js).catchError((_) {});
   }
@@ -159,7 +191,7 @@ class _GamePageState extends State<GamePage> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color(0xFF051937),
       appBar: AppBar(
         title: const Text('小游戏'),
         actions: [
@@ -178,8 +210,7 @@ class _GamePageState extends State<GamePage> with WidgetsBindingObserver {
       body: Stack(
         children: [
           WebViewWidget(controller: _controller),
-          if (_loading)
-            const Center(child: CircularProgressIndicator()),
+          if (_loading) const Center(child: CircularProgressIndicator()),
           if (_loadError != null)
             Center(
               child: Padding(
@@ -189,9 +220,11 @@ class _GamePageState extends State<GamePage> with WidgetsBindingObserver {
                   children: [
                     Icon(Icons.wifi_off, size: 48, color: Colors.grey.shade500),
                     const SizedBox(height: 12),
-                    Text(_loadError!,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.white70)),
+                    Text(
+                      _loadError!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white70),
+                    ),
                     const SizedBox(height: 16),
                     FilledButton(
                       onPressed: () {

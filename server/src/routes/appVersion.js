@@ -4,6 +4,7 @@
 import { Router } from 'express';
 import { query } from '../db.js';
 import { config } from '../config.js';
+import { getRuntimeSettings } from '../services/runtimeSettings.js';
 
 const router = Router();
 
@@ -29,13 +30,20 @@ function slot(name, enabled, unitId, extra = {}) {
 // 广告位配置下发。App 启动时拉取；接入真实广告 SDK 后只改服务端环境变量。
 // rewarded_home（首页余额，走 task_token 发奖）与 rewarded_game（小游戏
 // 本局补救，绝不发奖到钱包）是两个独立广告位，客户端不得混用。
-router.get('/ad-config', (req, res) => {
-  const home = slot('rewarded_home', config.ad.rewardedEnabled, config.ad.unitRewardedHome);
-  res.json({
+router.get('/ad-config', async (req, res, next) => {
+  try {
+    const adSettings = await getRuntimeSettings('ad');
+    const home = slot(
+      'rewarded_home',
+      adSettings.rewarded_enabled,
+      config.ad.unitRewardedHome
+    );
+    res.json({
     provider: config.ad.provider,
     app_id: config.ad.hjAppId,
     splash: slot('splash', config.ad.splashEnabled, config.ad.unitSplash, {
       min_interval_sec: config.ad.splashMinIntervalSec,
+      daily_max: config.ad.splashDailyMax,
     }),
     // rewarded = rewarded_home 的别名，兼容旧版 App（只认 rewarded 字段）
     rewarded: home,
@@ -54,7 +62,14 @@ router.get('/ad-config', (req, res) => {
         daily_max: config.ad.interstitialDailyMax,
       }
     ),
-  });
+      reward_policy: {
+        reward_microunits: adSettings.reward_microunits,
+        daily_max: adSettings.daily_max,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 router.get('/version', async (req, res, next) => {

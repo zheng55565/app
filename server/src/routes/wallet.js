@@ -1,12 +1,16 @@
 // 钱包路由
 // GET /api/wallet           余额概览：中转站（new-api）账本为资产真相来源（方案 §16），
 //                           实时查询中转站额度；本地 microunits 仅作镜像/对账
-// GET /api/wallet/records   本地流水分页
+// GET /api/wallet/records   广告收入与 New API 消费流水合并分页
 import { Router } from 'express';
 import { query } from '../db.js';
 import { config } from '../config.js';
 import { requireAuth } from '../middleware/auth.js';
-import { findAccountByLinuxdoId } from '../services/stationClient.js';
+import {
+  findAccountByLinuxdoId,
+  listUsageLogsByLinuxdoId,
+} from '../services/stationClient.js';
+import { businessDate } from '../services/adSecurity.js';
 
 const router = Router();
 
@@ -24,10 +28,11 @@ router.get('/', requireAuth, async (req, res, next) => {
     // 今日/累计收益从真实发奖订单（success）统计，与中转站账本口径一致
     const { rows: earnedRows } = await query(
       `SELECT
-         COALESCE(SUM(amount_microunits) FILTER (WHERE created_at >= CURRENT_DATE), 0) AS today_micro,
+         COALESCE(SUM(amount_microunits) FILTER (WHERE created_at >= $2::date
+           AND created_at < ($2::date + INTERVAL '1 day')), 0) AS today_micro,
          COALESCE(SUM(amount_microunits), 0) AS total_micro
        FROM reward_orders WHERE user_id = $1 AND status = 'success'`,
-      [req.user.id]
+      [req.user.id, businessDate()]
     );
     const todayMicro = Number(earnedRows[0].today_micro);
     const totalMicro = Number(earnedRows[0].total_micro);
@@ -68,22 +73,73 @@ router.get('/records', requireAuth, async (req, res, next) => {
   try {
     const page = Math.max(1, Number(req.query.page) || 1);
     const pageSize = Math.min(50, Math.max(1, Number(req.query.page_size) || 20));
+    const fetchSize = Math.min(100, page * pageSize);
     const { rows } = await query(
       `SELECT id, amount_microunits, balance_after_microunits, type, source, related_id, remark, created_at
        FROM wallet_records WHERE user_id = $1
-       ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
-      [req.user.id, pageSize, (page - 1) * pageSize]
+       ORDER BY created_at DESC LIMIT $2`,
+      [req.user.id, fetchSize]
     );
+
+    const localRecords = rows.map((r) => ({
+      ...r,
+      amount_microunits: Number(r.amount_microunits),
+      balance_after_microunits: Number(r.balance_after_microunits),
+      amount_quota: microToQuota(r.amount_microunits),
+      amount_usd: quotaToUsd(microToQuota(r.amount_microunits)),
+      balance_after_quota: microToQuota(r.balance_after_microunits),
+      balance_after_usd: quotaToUsd(microToQuota(r.balance_after_microunits)),
+      direction: Number(r.amount_microunits) >= 0 ? 'income' : 'expense',
+    }));
+
+    let usageResult = { items: [], total: 0 };
+    if (req.user.linuxdo_user_id) {
+      try {
+        usageResult = await listUsageLogsByLinuxdoId(
+          req.user.linuxdo_user_id,
+          req.user.linuxdo_username,
+          fetchSize
+        );
+      } catch (err) {
+        console.error('[wallet] New API 消费流水查询失败，降级本地流水:', err.message);
+      }
+    }
+
+    const usageRecords = usageResult.items.flatMap((log) => {
+      const quota = Math.max(0, Number(log.quota) || 0);
+      const createdAtSeconds = Number(log.created_at);
+      if (quota <= 0 || !Number.isFinite(createdAtSeconds) || createdAtSeconds <= 0) return [];
+      const amountMicro = -Math.round((quota * 1000000) / config.station.quotaPerCny);
+      return [{
+        id: `newapi_${log.id}`,
+        amount_microunits: amountMicro,
+        balance_after_microunits: null,
+        amount_quota: -quota,
+        amount_usd: -quotaToUsd(quota),
+        balance_after_quota: null,
+        balance_after_usd: null,
+        type: 'api_consume',
+        source: 'newapi_log',
+        related_id: log.request_id || null,
+        remark: log.model_name ? `API 调用 · ${log.model_name}` : 'API 调用',
+        model_name: log.model_name || null,
+        prompt_tokens: Number(log.prompt_tokens) || 0,
+        completion_tokens: Number(log.completion_tokens) || 0,
+        created_at: new Date(createdAtSeconds * 1000).toISOString(),
+        direction: 'expense',
+      }];
+    });
+
+    const start = (page - 1) * pageSize;
+    const records = [...localRecords, ...usageRecords]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(start, start + pageSize);
     res.json({
       page,
       page_size: pageSize,
-      records: rows.map((r) => ({
-        ...r,
-        amount_microunits: Number(r.amount_microunits),
-        balance_after_microunits: Number(r.balance_after_microunits),
-        amount_quota: microToQuota(r.amount_microunits),
-        amount_usd: quotaToUsd(microToQuota(r.amount_microunits)),
-      })),
+      records,
+      total: localRecords.length + usageResult.total,
+      has_more: start + records.length < localRecords.length + usageResult.total,
     });
   } catch (err) {
     next(err);
