@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
+    <title>{{{ PRODUCT_NAME }}}</title>
+    <style>
+      html, body { margin:0; padding:0; width:100%; height:100%; background:#14121a; overflow:hidden; }
+      #unity-canvas { width:100%; height:100%; display:block; background:#14121a; }
+      #loading { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center;
+                 justify-content:center; gap:14px; color:#8b87a0; font:14px system-ui,sans-serif; }
+      #bar { width:60%; max-width:280px; height:6px; background:#2c2840; border-radius:3px; overflow:hidden; }
+      #fill { width:0%; height:100%; background:#7c4dff; border-radius:3px; transition:width .2s; }
+    </style>
+  </head>
+  <body>
+    <canvas id="unity-canvas" tabindex="-1"></canvas>
+    <div id="loading">
+      <div>小游戏加载中…</div>
+      <div id="bar"><div id="fill"></div></div>
+    </div>
+    <script src="Build/{{{ LOADER_FILENAME }}}"></script>
+    <script>
+      // ==== 微信小游戏 SDK 兼容层 ====
+      // 项目内置的 WX-WASM-SDK 会把存档（PlayerPrefs）重定向到
+      // window.WXWASMSDK.WXStorage*（仅微信环境存在）。标准 WebGL 跑在
+      // App WebView 里没有这个对象，引擎启动读存档即崩。
+      // 这里用 localStorage 实现存储接口（存档功能完整），其余微信专属
+      // 接口经 Proxy 返回无害空实现。
+      (function () {
+        var impl = {
+          WXStorageSetIntSync:    function (k, v) { localStorage.setItem(k, String(v)); },
+          WXStorageGetIntSync:    function (k, d) { var v = localStorage.getItem(k); return v === null ? Number(d) || 0 : Number(v) || 0; },
+          WXStorageSetFloatSync:  function (k, v) { localStorage.setItem(k, String(v)); },
+          WXStorageGetFloatSync:  function (k, d) { var v = localStorage.getItem(k); return v === null ? Number(d) || 0 : Number(v) || 0; },
+          WXStorageSetStringSync: function (k, v) { localStorage.setItem(k, v === undefined || v === null ? '' : String(v)); },
+          WXStorageGetStringSync: function (k, d) { var v = localStorage.getItem(k); return v === null ? (d === undefined || d === null ? '' : String(d)) : v; },
+          WXStorageDeleteAllSync: function () { localStorage.clear(); },
+          WXStorageDeleteKeySync: function (k) { localStorage.removeItem(k); },
+          WXStorageHasKeySync:    function (k) { return localStorage.getItem(k) !== null; }
+        };
+        window.WXWASMSDK = new Proxy(impl, {
+          get: function (target, prop) {
+            if (prop in target) return target[prop];
+            return function () { return ''; };
+          }
+        });
+      })();
+
+      createUnityInstance(document.querySelector("#unity-canvas"), {
+        arguments: [],
+        dataUrl: "Build/{{{ DATA_FILENAME }}}",
+        frameworkUrl: "Build/{{{ FRAMEWORK_FILENAME }}}",
+#if USE_THREADS
+        workerUrl: "Build/{{{ WORKER_FILENAME }}}",
+#endif
+#if USE_WASM
+        codeUrl: "Build/{{{ CODE_FILENAME }}}",
+#endif
+#if MEMORY_FILENAME
+        memoryUrl: "Build/{{{ MEMORY_FILENAME }}}",
+#endif
+#if SYMBOLS_FILENAME
+        symbolsUrl: "Build/{{{ SYMBOLS_FILENAME }}}",
+#endif
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: {{{ JSON.stringify(COMPANY_NAME) }}},
+        productName: {{{ JSON.stringify(PRODUCT_NAME) }}},
+        productVersion: {{{ JSON.stringify(PRODUCT_VERSION) }}},
+      }, function (progress) {
+        document.getElementById("fill").style.width = (progress * 100) + "%";
+      }).then(function (instance) {
+        // 关键：暴露给 GongyiAppBridge.jslib，App 回执经此转发进 Unity
+        window.unityInstance = instance;
+        document.getElementById("loading").style.display = "none";
+      }).catch(function (message) {
+        document.getElementById("loading").firstElementChild.textContent =
+          "加载失败：" + message;
+      });
+    </script>
+  </body>
+</html>
